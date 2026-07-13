@@ -14,7 +14,7 @@ pub struct FlowGraph<'a> {
 
 impl Widget for FlowGraph<'_> {
     fn render(self, area: Rect, buf: &mut Buffer) {
-        let execution_order = &self.store.runner.execution_order;
+        let execution_order = self.store.visible_tasks;
         let tasks = &self.store.runner.tasks;
         let states_guard = self.store.runner.states.lock().unwrap();
 

@@ -27,7 +27,7 @@ impl TaskList<'_> {
         if key.modifiers.contains(KeyModifiers::SHIFT) {
             return None;
         }
-        let order = &store.runner.execution_order;
+        let order = store.visible_tasks;
         let mut idx = current_index;
 
         match key.code {
@@ -65,7 +65,7 @@ impl TaskList<'_> {
 impl Widget for TaskList<'_> {
     fn render(self, area: Rect, buf: &mut Buffer) {
         let mut list_items = Vec::new();
-        let execution_order = &self.store.runner.execution_order;
+        let execution_order = self.store.visible_tasks;
         let states_guard = self.store.runner.states.lock().unwrap();
 
         for (i, name) in execution_order.iter().enumerate() {

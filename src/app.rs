@@ -16,13 +16,25 @@ pub struct App {
     log_scroll_offset: u16,
     exit: bool,
     auto_scroll: bool,
+    visible_tasks: Vec<String>,
 }
 
 impl App {
     pub fn new(runner: TaskRunner, initial_tasks: Vec<String>) -> Self {
+        let visible_tasks = if initial_tasks.is_empty() {
+            runner.execution_order.clone()
+        } else {
+            let subgraph = runner.get_subgraph(&initial_tasks);
+            runner.execution_order
+                .iter()
+                .filter(|name| subgraph.contains(*name))
+                .cloned()
+                .collect::<Vec<String>>()
+        };
+
         let mut selected_task_index = 0;
         if let Some(first_task) = initial_tasks.first() {
-            if let Some(pos) = runner.execution_order.iter().position(|name| name == first_task) {
+            if let Some(pos) = visible_tasks.iter().position(|name| name == first_task) {
                 selected_task_index = pos;
             }
         }
@@ -37,6 +49,7 @@ impl App {
             log_scroll_offset: 0,
             exit: false,
             auto_scroll: true,
+            visible_tasks,
         }
     }
 
@@ -49,8 +62,7 @@ impl App {
     }
 
     fn selected_task_name(&self) -> Option<String> {
-        self.runner
-            .execution_order
+        self.visible_tasks
             .get(self.selected_task_index)
             .cloned()
     }
@@ -84,6 +96,7 @@ impl App {
         // Prepare context store for sharing global data
         let store = Store {
             runner: &self.runner,
+            visible_tasks: &self.visible_tasks,
         };
 
         // --- Left Sidebar: Task List ---
@@ -168,6 +181,7 @@ impl App {
 
         let store = Store {
             runner: &self.runner,
+            visible_tasks: &self.visible_tasks,
         };
 
         // 2. Delegate key handling to TaskList
