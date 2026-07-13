@@ -1,13 +1,16 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "AppConfig",
+  "description": "The basic application configuration",
   "type": "object",
   "properties": {
     "tui": {
+      "description": "Whether to enable the TUI (Terminal User Interface) mode",
       "default": false,
       "type": "boolean"
     },
     "tasks": {
+      "description": "The map of tasks to define and run",
       "type": "object",
       "additionalProperties": {
         "$ref": "#/definitions/Task"
@@ -16,29 +19,26 @@
   },
   "definitions": {
     "Task": {
+      "description": "Configuration details for an individual task",
       "type": "object",
       "properties": {
         "run": {
-          "anyOf": [
+          "description": "The command(s) to run",
+          "allOf": [
             {
               "$ref": "#/definitions/RunCommand"
-            },
-            {
-              "type": "null"
             }
           ]
         },
         "working_dir": {
-          "type": [
-            "string",
-            "null"
-          ]
+          "description": "The working directory in which the command(s) should be executed",
+          "default": null,
+          "type": "string"
         },
         "depends_on": {
-          "type": [
-            "array",
-            "null"
-          ],
+          "description": "A list of task names that this task depends on and must run after",
+          "default": null,
+          "type": "array",
           "items": {
             "type": "string"
           }
@@ -46,11 +46,14 @@
       }
     },
     "RunCommand": {
+      "description": "A command to run, which can be a single string or an array of strings",
       "anyOf": [
         {
+          "description": "Runs a single command string",
           "type": "string"
         },
         {
+          "description": "Runs multiple command strings in sequence",
           "type": "array",
           "items": {
             "type": "string"
