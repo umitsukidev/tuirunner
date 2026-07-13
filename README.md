@@ -22,7 +22,7 @@
 To install `tuir`, run the following command:
 
 ```bash
-cargo install --git https://github.com/umitsuki/tuirunner.git
+cargo install --git https://github.com/umitsukidev/tuirunner.git
 ```
 
 This will compile and install the `tuir` binary into your Cargo bin directory (e.g., `~/.cargo/bin`), which should be in your system's `PATH`.
@@ -116,14 +116,14 @@ When running in TUI mode, use the following keybindings to interact with the app
 
 ### Prerequisites
 
-Ensure you have Rust (MSRV 1.74.0+ / 2024 edition) installed.
+Ensure you have Rust (MSRV 1.85.0+ / 2024 edition) installed.
 
 ### Building from Source
 
 To build the executable manually from source:
 
 ```bash
-git clone https://github.com/umitsuki/tuirunner.git
+git clone https://github.com/umitsukidev/tuirunner.git
 cd tuirunner
 cargo build --release
 ```

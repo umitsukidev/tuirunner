@@ -4,6 +4,7 @@
 name = "tuirunner"
 version = "0.1.0-alpha.1"
 edition = "2024"
+rust-version = "1.85.0"
 license = "MIT"
 authors = ["kurage <git@umitsuki.dev>"]
 keywords = [
@@ -19,6 +20,7 @@ keywords = [
 description = "A concurrent task runner with a TUI interface built on Ratatui."
 homepage = "https://github.com/umitsukidev/tuirunner"
 repository = "https://github.com/umitsukidev/tuirunner"
+readme = "README.md"
 
 [[bin]]
 name = "tuir"
@@ -32,7 +34,7 @@ ratatui = "0.30.2"
 serde = { version = "1.0.228", features = ["derive"] }
 toml = "0.8.19"
 serde_json = "1.0.128"
-serde_yaml = "0.9.34"
 schemars = { version = "0.8.21", features = ["preserve_order"] }
 clap = { version = "4.5", features = ["derive"] }
 clap_complete = "4.5"
+yaml_serde = "0.10.4"

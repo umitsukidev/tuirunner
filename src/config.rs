@@ -69,7 +69,7 @@ impl AppConfig {
 
         let config: AppConfig = match extension {
             "json" => serde_json::from_str(&content)?,
-            "yaml" | "yml" => serde_yaml::from_str(&content)?,
+            "yaml" | "yml" => yaml_serde::from_str(&content)?,
             "toml" => toml::from_str(&content)?,
             _ => toml::from_str(&content)?, // デフォルトはTOMLとしてパース試行
         };
