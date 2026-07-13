@@ -115,34 +115,34 @@ impl Widget for FlowGraph<'_> {
                     let conn = match (k1, k2) {
                         (1, 1) => {
                             if r == h / 2 {
-                                " ───► "
+                                " ──► "
                             } else {
-                                "      "
+                                "        "
                             }
                         }
                         (n, 1) if n > 1 => {
                             if r == 0 {
-                                " ──┐  "
+                                " ─┐   "
                             } else if r == h / 2 {
-                                "   ├──► "
+                                "  ├► "
                             } else if r == h - 1 {
-                                " ──┘  "
+                                " ─┘   "
                             } else {
-                                "      "
+                                "        "
                             }
                         }
                         (1, n) if n > 1 => {
                             if r == 0 {
-                                "   ┌──► "
+                                "  ┌► "
                             } else if r == h / 2 {
-                                " ──┤  "
+                                "  ─┤   "
                             } else if r == h - 1 {
-                                "   └──► "
+                                "  └► "
                             } else {
-                                "      "
+                                "        "
                             }
                         }
-                        _ => " ───► ",
+                        _ => " ──► ",
                     };
                     spans.push(Span::styled(conn, Style::default().fg(Color::DarkGray)));
                 }
