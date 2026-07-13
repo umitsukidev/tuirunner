@@ -7,15 +7,16 @@ use crate::{
 };
 use std::{
     collections::{HashMap, HashSet},
-    sync::{Arc, Condvar, Mutex},
+    sync::{Arc, Mutex},
 };
+use tokio::{sync::Notify, task::JoinHandle};
 
 #[derive(Debug)]
 pub struct TaskRunner {
     pub tasks: HashMap<String, Task>,
     pub execution_order: Vec<String>,
     pub states: Arc<Mutex<HashMap<String, TaskState>>>,
-    pub condvar: Arc<Condvar>,
+    pub notify: Arc<Notify>,
     pub is_tui: bool,
 }
 
@@ -39,7 +40,7 @@ impl TaskRunner {
             tasks,
             execution_order,
             states: Arc::new(Mutex::new(states_map)),
-            condvar: Arc::new(Condvar::new()),
+            notify: Arc::new(Notify::new()),
             is_tui,
         })
     }
@@ -57,23 +58,23 @@ impl TaskRunner {
         &self.execution_order
     }
 
-    pub fn run_task(&self, target_name: &str) {
+    pub fn run_task(&self, target_name: &str) -> JoinHandle<()> {
         let mut target_subgraph = HashSet::new();
         get_subgraph(&self.tasks, target_name, &mut target_subgraph);
-        self.spawn_scheduler_thread(target_subgraph);
+        self.spawn_scheduler(target_subgraph)
     }
 
-    pub fn run_tasks(&self, targets: &[String]) {
+    pub fn run_tasks(&self, targets: &[String]) -> JoinHandle<()> {
         let mut target_subgraph = HashSet::new();
         for target in targets {
             get_subgraph(&self.tasks, target, &mut target_subgraph);
         }
-        self.spawn_scheduler_thread(target_subgraph);
+        self.spawn_scheduler(target_subgraph)
     }
 
-    pub fn run_all(&self) {
+    pub fn run_all(&self) -> JoinHandle<()> {
         let target_subgraph: HashSet<String> = self.tasks.keys().cloned().collect();
-        self.spawn_scheduler_thread(target_subgraph);
+        self.spawn_scheduler(target_subgraph)
     }
 
     pub fn clear_logs(&self, task_name: &str) {
@@ -90,7 +91,7 @@ impl TaskRunner {
         }
     }
 
-    fn spawn_scheduler_thread(&self, target_subgraph: HashSet<String>) {
+    fn spawn_scheduler(&self, target_subgraph: HashSet<String>) -> JoinHandle<()> {
         // Reset state of target tasks to Pending and prepare their output buffers
         {
             let mut states_guard = self.states.lock().unwrap();
@@ -105,141 +106,148 @@ impl TaskRunner {
         }
 
         let states = Arc::clone(&self.states);
-        let condvar = Arc::clone(&self.condvar);
+        let notify = Arc::clone(&self.notify);
         let tasks = self.tasks.clone();
         let is_tui = self.is_tui;
         let execution_order = self.execution_order.clone();
 
-        std::thread::spawn(move || {
+        tokio::spawn(async move {
             loop {
-                let mut states_guard = states.lock().unwrap();
                 let mut has_running = false;
                 let mut has_pending = false;
-                let mut to_start = Vec::new();
 
-                for name in &target_subgraph {
-                    let state = states_guard.get(name).unwrap();
-                    match state.status {
-                        TaskStatus::Running => {
-                            has_running = true;
-                        }
-                        TaskStatus::Pending => {
-                            has_pending = true;
-                            let task_config = tasks.get(name).unwrap();
-                            let deps = task_config.depends_on.as_ref();
+                {
+                    let mut states_guard = states.lock().unwrap();
+                    let mut to_start = Vec::new();
 
-                            let all_deps_success = match deps {
-                                None => true,
-                                Some(dep_list) => dep_list.iter().all(|dep| {
-                                    states_guard
-                                        .get(dep)
-                                        .map(|s| s.status == TaskStatus::Success)
-                                        .unwrap_or(false)
-                                }),
-                            };
-
-                            let any_dep_failed = match deps {
-                                None => false,
-                                Some(dep_list) => dep_list.iter().any(|dep| {
-                                    states_guard
-                                        .get(dep)
-                                        .map(|s| s.status == TaskStatus::Failed)
-                                        .unwrap_or(false)
-                                }),
-                            };
-
-                            if all_deps_success {
-                                to_start.push(name.clone());
-                            } else if any_dep_failed {
-                                let state_mut = states_guard.get_mut(name).unwrap();
-                                state_mut.status = TaskStatus::Failed;
-                                let mut out = state_mut.output.lock().unwrap();
-                                out.push("Dependency task failed. Skipping execution.".to_string());
+                    for name in &target_subgraph {
+                        let state = states_guard.get(name).unwrap();
+                        match state.status {
+                            TaskStatus::Running => {
+                                has_running = true;
                             }
+                            TaskStatus::Pending => {
+                                has_pending = true;
+                                let task_config = tasks.get(name).unwrap();
+                                let deps = task_config.depends_on.as_ref();
+
+                                let all_deps_success = match deps {
+                                    None => true,
+                                    Some(dep_list) => dep_list.iter().all(|dep| {
+                                        states_guard
+                                            .get(dep)
+                                            .map(|s| s.status == TaskStatus::Success)
+                                            .unwrap_or(false)
+                                    }),
+                                };
+
+                                let any_dep_failed = match deps {
+                                    None => false,
+                                    Some(dep_list) => dep_list.iter().any(|dep| {
+                                        states_guard
+                                            .get(dep)
+                                            .map(|s| s.status == TaskStatus::Failed)
+                                            .unwrap_or(false)
+                                    }),
+                                };
+
+                                if all_deps_success {
+                                    to_start.push(name.clone());
+                                } else if any_dep_failed {
+                                    let state_mut = states_guard.get_mut(name).unwrap();
+                                    state_mut.status = TaskStatus::Failed;
+                                    let mut out = state_mut.output.lock().unwrap();
+                                    out.push(
+                                        "Dependency task failed. Skipping execution.".to_string(),
+                                    );
+                                }
+                            }
+                            _ => {}
                         }
-                        _ => {}
-                    }
-                }
-
-                // Start tasks that are ready to run
-                for name in to_start {
-                    let state_mut = states_guard.get_mut(&name).unwrap();
-                    state_mut.status = TaskStatus::Running;
-
-                    let output_buf = Arc::clone(&state_mut.output);
-                    let name_clone = name.clone();
-
-                    let prefix = if !is_tui {
-                        let colors = [
-                            crossterm::style::Color::Blue,
-                            crossterm::style::Color::Green,
-                            crossterm::style::Color::Yellow,
-                            crossterm::style::Color::Magenta,
-                            crossterm::style::Color::Cyan,
-                            crossterm::style::Color::Red,
-                        ];
-                        let task_idx = execution_order
-                            .iter()
-                            .position(|n| n == &name_clone)
-                            .unwrap_or(0);
-                        let color = colors[task_idx % colors.len()];
-                        use crossterm::style::Stylize;
-                        Some(format!(
-                            "{}",
-                            format!("[{}]", name_clone).with(color).bold()
-                        ))
-                    } else {
-                        None
-                    };
-
-                    {
-                        let mut buf = output_buf.lock().unwrap();
-                        buf.clear();
-                        buf.push(format!("=== Starting task: {} ===", name));
                     }
 
-                    let task_config = tasks.get(&name).unwrap().clone();
-                    let states_worker = Arc::clone(&states);
-                    let condvar_worker = Arc::clone(&condvar);
-                    let prefix_worker = prefix.clone();
+                    // Start tasks that are ready to run
+                    for name in to_start {
+                        let state_mut = states_guard.get_mut(&name).unwrap();
+                        state_mut.status = TaskStatus::Running;
 
-                    std::thread::spawn(move || {
-                        let result = cmd::execute_command_capturing(
-                            &task_config,
-                            &output_buf,
-                            &prefix_worker,
-                        );
+                        let output_buf = Arc::clone(&state_mut.output);
+                        let name_clone = name.clone();
 
-                        let mut guard = states_worker.lock().unwrap();
-                        let s = guard.get_mut(&name_clone).unwrap();
-                        s.status = if result.is_ok() {
-                            TaskStatus::Success
+                        let prefix = if !is_tui {
+                            let colors = [
+                                crossterm::style::Color::Blue,
+                                crossterm::style::Color::Green,
+                                crossterm::style::Color::Yellow,
+                                crossterm::style::Color::Magenta,
+                                crossterm::style::Color::Cyan,
+                                crossterm::style::Color::Red,
+                            ];
+                            let task_idx = execution_order
+                                .iter()
+                                .position(|n| n == &name_clone)
+                                .unwrap_or(0);
+                            let color = colors[task_idx % colors.len()];
+                            use crossterm::style::Stylize;
+                            Some(format!(
+                                "{}",
+                                format!("[{}]", name_clone).with(color).bold()
+                            ))
                         } else {
-                            TaskStatus::Failed
+                            None
                         };
+
                         {
                             let mut buf = output_buf.lock().unwrap();
-                            match result {
-                                Ok(_) => {
-                                    buf.push(format!("=== Task succeeded: {} ===", name_clone))
-                                }
-                                Err(e) => {
-                                    buf.push(format!("=== Task failed: {}: {} ===", name_clone, e))
+                            buf.clear();
+                            buf.push(format!("=== Starting task: {} ===", name));
+                        }
+
+                        let task_config = tasks.get(&name).unwrap().clone();
+                        let states_worker = Arc::clone(&states);
+                        let notify_worker = Arc::clone(&notify);
+                        let prefix_worker = prefix.clone();
+
+                        tokio::spawn(async move {
+                            let result = cmd::execute_command_capturing(
+                                &task_config,
+                                &output_buf,
+                                &prefix_worker,
+                            )
+                            .await;
+
+                            let mut guard = states_worker.lock().unwrap();
+                            let s = guard.get_mut(&name_clone).unwrap();
+                            s.status = if result.is_ok() {
+                                TaskStatus::Success
+                            } else {
+                                TaskStatus::Failed
+                            };
+                            {
+                                let mut buf = output_buf.lock().unwrap();
+                                match result {
+                                    Ok(_) => {
+                                        buf.push(format!("=== Task succeeded: {} ===", name_clone))
+                                    }
+                                    Err(e) => buf.push(format!(
+                                        "=== Task failed: {}: {} ===",
+                                        name_clone, e
+                                    )),
                                 }
                             }
-                        }
-                        condvar_worker.notify_all();
-                    });
-                    has_running = true;
+                            notify_worker.notify_one();
+                        });
+                        has_running = true;
+                    }
                 }
 
                 if !has_running && !has_pending {
                     break;
                 }
 
-                states_guard = condvar.wait(states_guard).unwrap();
+                notify.notified().await;
             }
-        });
+        })
     }
 }
 

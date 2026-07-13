@@ -31,3 +31,8 @@ Maintain a strict decoupling between:
   - Decoupled from the TUI framework; interacts only via thread-safe states (`Arc`, `Mutex`).
 - **Data Sharing Store (`src/store.rs`)**:
   - Serves as a read-only container for components to easily access current execution order and runner state.
+
+## 3. Coding Style (Rust Code Formatting)
+- **Group and Combine `use` Imports**:
+  - Group imports from the same crate/module together using nested paths (e.g. `use tokio::io::{AsyncBufReadExt, BufReader};` instead of separate `use` lines) to keep the import block clean and compact.
+

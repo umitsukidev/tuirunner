@@ -15,7 +15,8 @@ use crate::{
 };
 use clap::{CommandFactory, Parser};
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // エラーハンドリングの初期化
     color_eyre::install()?;
 
@@ -75,7 +76,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     if !use_tui {
         // 非TUIモード実行
-        if let Err(e) = non_tui::run_non_tui(&runner, &targets) {
+        if let Err(e) = non_tui::run_non_tui(&runner, &targets).await {
             eprintln!("Error: {}", e);
             std::process::exit(1);
         }

@@ -71,7 +71,7 @@ impl AppConfig {
             "json" => serde_json::from_str(&content)?,
             "yaml" | "yml" => yaml_serde::from_str(&content)?,
             "toml" => toml::from_str(&content)?,
-            _ => toml::from_str(&content)?, // デフォルトはTOMLとしてパース試行
+            _ => toml::from_str(&content)?,
         };
 
         config.validate()?;

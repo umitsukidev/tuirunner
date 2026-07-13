@@ -1,17 +1,20 @@
 use crate::config::{RunCommand, Task};
 use std::{
-    io::{BufRead, BufReader},
     process::Stdio,
     sync::{Arc, Mutex},
 };
+use tokio::{
+    io::{AsyncBufReadExt, BufReader},
+    process::Command,
+};
 
-pub fn run_shell_command(
+pub async fn run_shell_command(
     cmd_str: &str,
     working_dir: &Option<std::path::PathBuf>,
     output_buf: &Arc<Mutex<Vec<String>>>,
     prefix: &Option<String>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let mut command = std::process::Command::new("sh");
+    let mut command = Command::new("sh");
     command.arg("-c").arg(cmd_str);
     if let Some(dir) = working_dir {
         command.current_dir(dir);
@@ -26,38 +29,33 @@ pub fn run_shell_command(
 
     let output_buf_stdout = Arc::clone(output_buf);
     let prefix_stdout = prefix.clone();
-    let stdout_handle = std::thread::spawn(move || {
-        let reader = BufReader::new(stdout);
-        for line in reader.lines() {
-            if let Ok(l) = line {
-                if let Some(ref pref) = prefix_stdout {
-                    println!("{} {}", pref, l);
-                }
-                let mut buf = output_buf_stdout.lock().unwrap();
-                buf.push(l);
+    let stdout_handle = tokio::spawn(async move {
+        let mut reader = BufReader::new(stdout).lines();
+        while let Ok(Some(line)) = reader.next_line().await {
+            if let Some(ref pref) = prefix_stdout {
+                println!("{} {}", pref, line);
             }
+            let mut buf = output_buf_stdout.lock().unwrap();
+            buf.push(line);
         }
     });
 
     let output_buf_stderr = Arc::clone(output_buf);
     let prefix_stderr = prefix.clone();
-    let stderr_handle = std::thread::spawn(move || {
-        let reader = BufReader::new(stderr);
-        for line in reader.lines() {
-            if let Ok(l) = line {
-                if let Some(ref pref) = prefix_stderr {
-                    eprintln!("{} [stderr] {}", pref, l);
-                }
-                let mut buf = output_buf_stderr.lock().unwrap();
-                buf.push(format!("[stderr] {}", l));
+    let stderr_handle = tokio::spawn(async move {
+        let mut reader = BufReader::new(stderr).lines();
+        while let Ok(Some(line)) = reader.next_line().await {
+            if let Some(ref pref) = prefix_stderr {
+                eprintln!("{} [stderr] {}", pref, line);
             }
+            let mut buf = output_buf_stderr.lock().unwrap();
+            buf.push(format!("[stderr] {}", line));
         }
     });
 
-    let _ = stdout_handle.join();
-    let _ = stderr_handle.join();
+    let _ = tokio::join!(stdout_handle, stderr_handle);
 
-    let status = child.wait()?;
+    let status = child.wait().await?;
     if status.success() {
         Ok(())
     } else {
@@ -65,7 +63,7 @@ pub fn run_shell_command(
     }
 }
 
-pub fn execute_command_capturing(
+pub async fn execute_command_capturing(
     task: &Task,
     output_buf: &Arc<Mutex<Vec<String>>>,
     prefix: &Option<String>,
@@ -87,7 +85,7 @@ pub fn execute_command_capturing(
                     println!("{} {}", pref, format!("$ {}", cmd_str).dim());
                 }
             }
-            run_shell_command(cmd_str, &task.working_dir, output_buf, prefix)
+            run_shell_command(cmd_str, &task.working_dir, output_buf, prefix).await
         }
         Some((RunCommand::Multiple(cmds), show_command)) => {
             for cmd_str in cmds {
@@ -101,7 +99,7 @@ pub fn execute_command_capturing(
                     let mut buf = output_buf.lock().unwrap();
                     buf.push(format!("$ {}", cmd_str));
                 }
-                run_shell_command(cmd_str, &task.working_dir, output_buf, prefix)?;
+                run_shell_command(cmd_str, &task.working_dir, output_buf, prefix).await?;
             }
             Ok(())
         }
