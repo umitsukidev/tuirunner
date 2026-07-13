@@ -92,17 +92,27 @@ impl TaskRunner {
     }
 
     fn spawn_scheduler(&self, target_subgraph: HashSet<String>) -> JoinHandle<()> {
-        // Reset state of target tasks to Pending and prepare their output buffers
+        let mut filtered_subgraph = HashSet::new();
+
+        // Reset state of target tasks to Pending and prepare their output buffers,
+        // skipping tasks that are already Running or Pending to prevent duplicate execution.
         {
             let mut states_guard = self.states.lock().unwrap();
             for name in &target_subgraph {
                 if let Some(state) = states_guard.get_mut(name) {
-                    state.status = TaskStatus::Pending;
-                    let mut out = state.output.lock().unwrap();
-                    out.clear();
-                    out.push(format!("=== Task queued: {} ===", name));
+                    if state.status != TaskStatus::Running && state.status != TaskStatus::Pending {
+                        state.status = TaskStatus::Pending;
+                        let mut out = state.output.lock().unwrap();
+                        out.clear();
+                        out.push(format!("=== Task queued: {} ===", name));
+                        filtered_subgraph.insert(name.clone());
+                    }
                 }
             }
+        }
+
+        if filtered_subgraph.is_empty() {
+            return tokio::spawn(async {});
         }
 
         let states = Arc::clone(&self.states);
@@ -120,7 +130,7 @@ impl TaskRunner {
                     let mut states_guard = states.lock().unwrap();
                     let mut to_start = Vec::new();
 
-                    for name in &target_subgraph {
+                    for name in &filtered_subgraph {
                         let state = states_guard.get(name).unwrap();
                         match state.status {
                             TaskStatus::Running => {
@@ -332,6 +342,74 @@ mod tests {
                 assert_eq!(cycle.first(), cycle.last());
                 assert_eq!(cycle.len(), 4);
             }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_prevent_duplicate_execution() {
+        let mut tasks = HashMap::new();
+        tasks.insert(
+            "A".to_string(),
+            Task {
+                run: Some(RunCommand::Single("sleep 1".to_string())),
+                cmd: None,
+                working_dir: None,
+                depends_on: None,
+            },
+        );
+
+        let config = TasksConfig { tasks };
+        let runner = TaskRunner::new(config, true).unwrap();
+
+        // 1st run
+        let handle1 = runner.run_task("A");
+
+        tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+
+        {
+            let states = runner.states.lock().unwrap();
+            let status = states.get("A").unwrap().status;
+            assert!(
+                status == TaskStatus::Running || status == TaskStatus::Pending,
+                "Expected task to be Running or Pending, got {:?}",
+                status
+            );
+        }
+
+        let initial_logs_len = {
+            let states = runner.states.lock().unwrap();
+            states.get("A").unwrap().output.lock().unwrap().len()
+        };
+
+        // 2nd run (attempted duplicate run)
+        let handle2 = runner.run_task("A");
+
+        tokio::time::timeout(tokio::time::Duration::from_millis(50), handle2)
+            .await
+            .expect("Second run handle should have finished immediately")
+            .unwrap();
+
+        {
+            let states = runner.states.lock().unwrap();
+            let state = states.get("A").unwrap();
+            assert!(
+                state.status == TaskStatus::Running || state.status == TaskStatus::Pending,
+                "Task status should still be Running or Pending, got {:?}",
+                state.status
+            );
+            let logs = state.output.lock().unwrap();
+            assert_eq!(
+                logs.len(),
+                initial_logs_len,
+                "Output logs should not have been cleared"
+            );
+        }
+
+        handle1.await.unwrap();
+
+        {
+            let states = runner.states.lock().unwrap();
+            assert_eq!(states.get("A").unwrap().status, TaskStatus::Success);
         }
     }
 }
