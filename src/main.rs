@@ -16,6 +16,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // 引数から設定ファイルのパスを取得、未指定なら "runner.config.toml"
     let args: Vec<String> = std::env::args().collect();
+    if args.len() > 1 && (args[1] == "--schema" || args[1] == "schema") {
+        let schema = schemars::schema_for!(AppConfig);
+        println!("{}", serde_json::to_string_pretty(&schema).unwrap());
+        return Ok(());
+    }
+
     let config_path = if args.len() > 1 {
         PathBuf::from(&args[1])
     } else {

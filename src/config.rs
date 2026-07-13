@@ -1,8 +1,9 @@
 use garde::Validate;
+use schemars::JsonSchema;
 use serde::Deserialize;
 use std::{collections::HashMap, path::PathBuf};
 
-#[derive(Debug, Clone, Deserialize, Validate)]
+#[derive(Debug, Clone, Deserialize, Validate, JsonSchema)]
 pub struct AppConfig {
     #[serde(default)]
     #[garde(skip)]
@@ -12,22 +13,23 @@ pub struct AppConfig {
     pub tasks: TasksConfig,
 }
 
-#[derive(Debug, Clone, Default, Deserialize, Validate)]
+#[derive(Debug, Clone, Default, Deserialize, Validate, JsonSchema)]
 #[garde(custom(validate_tasks_config))]
+#[schemars(transparent)]
 pub struct TasksConfig {
     #[serde(flatten)]
     #[garde(dive)]
     pub tasks: HashMap<String, Task>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(untagged)]
 pub enum RunCommand {
     Single(String),
     Multiple(Vec<String>),
 }
 
-#[derive(Debug, Clone, Deserialize, Validate)]
+#[derive(Debug, Clone, Deserialize, Validate, JsonSchema)]
 pub struct Task {
     #[serde(default)]
     #[garde(skip)]
