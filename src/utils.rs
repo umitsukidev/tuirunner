@@ -38,7 +38,7 @@ where
     }
 
     fn dfs<N, F>(
-        node: &N,
+        node: N,
         get_dependencies: &F,
         visited: &mut HashMap<N, VisitState>,
         order: &mut Vec<N>,
@@ -48,12 +48,12 @@ where
         N: Clone + Eq + Hash,
         F: Fn(&N) -> Vec<N>,
     {
-        match visited.get(node) {
+        match visited.get(&node) {
             Some(VisitState::Visited) => return Ok(()),
             Some(VisitState::Visiting) => {
-                let start_idx = path.iter().position(|x| x == node).unwrap_or(0);
+                let start_idx = path.iter().position(|x| x == &node).unwrap_or(0);
                 let mut cycle = path[start_idx..].to_vec();
-                cycle.push(node.clone());
+                cycle.push(node);
                 return Err(TopologicalSortError::DependencyCycle { cycle });
             }
             None => {}
@@ -62,13 +62,13 @@ where
         visited.insert(node.clone(), VisitState::Visiting);
         path.push(node.clone());
 
-        for dep in get_dependencies(node) {
-            dfs(&dep, get_dependencies, visited, order, path)?;
+        for dep in get_dependencies(&node) {
+            dfs(dep, get_dependencies, visited, order, path)?;
         }
 
         path.pop();
         visited.insert(node.clone(), VisitState::Visited);
-        order.push(node.clone());
+        order.push(node);
 
         Ok(())
     }
@@ -77,7 +77,7 @@ where
     for node in nodes {
         if !visited.contains_key(&node) {
             dfs(
-                &node,
+                node.clone(),
                 &get_dependencies,
                 &mut visited,
                 &mut order,
