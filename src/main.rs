@@ -1,6 +1,8 @@
 mod app;
+mod components;
 mod config;
 mod runner;
+mod store;
 mod utils;
 
 use app::App;
