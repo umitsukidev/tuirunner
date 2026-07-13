@@ -1,6 +1,6 @@
 use crate::{
     components::{FlowGraph, HelpBar, LogViewer, TaskList, task_list::TaskListEvent},
-    runner::TaskRunner,
+    runner::{TaskRunner, TaskStatus},
     store::Store,
 };
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
@@ -8,7 +8,7 @@ use ratatui::{
     DefaultTerminal, Frame,
     layout::{Constraint, Direction, Layout},
 };
-use std::{io, time::Duration};
+use std::{collections::HashMap, io, time::Duration};
 
 pub struct App {
     runner: TaskRunner,
@@ -17,6 +17,8 @@ pub struct App {
     exit: bool,
     auto_scroll: bool,
     visible_tasks: Vec<String>,
+    cached_statuses: HashMap<String, TaskStatus>,
+    cached_logs: HashMap<String, Vec<String>>,
 }
 
 impl App {
@@ -44,6 +46,16 @@ impl App {
             runner.run_tasks(&initial_tasks);
         }
 
+        let mut cached_statuses = HashMap::new();
+        let mut cached_logs = HashMap::new();
+        {
+            let states_guard = runner.states.lock().unwrap();
+            for (name, state) in states_guard.iter() {
+                cached_statuses.insert(name.clone(), state.status);
+                cached_logs.insert(name.clone(), state.output.lock().unwrap().clone());
+            }
+        }
+
         Self {
             runner,
             selected_task_index,
@@ -51,6 +63,8 @@ impl App {
             exit: false,
             auto_scroll: true,
             visible_tasks,
+            cached_statuses,
+            cached_logs,
         }
     }
 
@@ -67,6 +81,16 @@ impl App {
     }
 
     fn draw(&mut self, frame: &mut Frame) {
+        // try_lock to update cached statuses and logs
+        if let Ok(states_guard) = self.runner.states.try_lock() {
+            for (name, state) in states_guard.iter() {
+                self.cached_statuses.insert(name.clone(), state.status);
+                if let Ok(logs_guard) = state.output.try_lock() {
+                    self.cached_logs.insert(name.clone(), logs_guard.clone());
+                }
+            }
+        }
+
         let size = frame.area();
 
         // Split vertically (Body & Flow Graph & Help Bar)
@@ -92,9 +116,10 @@ impl App {
         let sidebar_area = body_layout[0];
         let log_area = body_layout[1];
 
-        // Prepare context store for sharing global data
+        // Prepare context store for sharing global data (pure snapshotted data)
         let store = Store {
-            runner: &self.runner,
+            tasks: &self.runner.tasks,
+            task_statuses: &self.cached_statuses,
             visible_tasks: &self.visible_tasks,
         };
 
@@ -106,36 +131,33 @@ impl App {
         frame.render_widget(task_list, sidebar_area);
 
         // --- Right Log Area: Selected Task Output ---
-        if let Some(selected_name) = self.selected_task_name() {
-            let states_guard = self.runner.states.lock().unwrap();
-            let state = states_guard.get(&selected_name).unwrap();
-            let logs_guard = state.output.lock().unwrap();
-            let logs_len = logs_guard.len();
-
-            // Calculate auto scroll constraint
-            let content_height = log_area.height.saturating_sub(2) as usize;
-            let max_scroll = logs_len.saturating_sub(content_height) as u16;
-
-            if self.auto_scroll {
-                self.log_scroll_offset = max_scroll;
-            } else if self.log_scroll_offset > max_scroll {
-                self.log_scroll_offset = max_scroll;
-            }
-
-            let log_viewer = LogViewer {
-                task_name: Some(&selected_name),
-                logs: &logs_guard,
-                scroll_offset: self.log_scroll_offset,
-            };
-            frame.render_widget(log_viewer, log_area);
+        let selected_name = self.selected_task_name();
+        let logs_slice = if let Some(ref name) = selected_name {
+            self.cached_logs
+                .get(name)
+                .map(|v| v.as_slice())
+                .unwrap_or(&[])
         } else {
-            let log_viewer = LogViewer {
-                task_name: None,
-                logs: &[],
-                scroll_offset: 0,
-            };
-            frame.render_widget(log_viewer, log_area);
+            &[]
+        };
+        let logs_len = logs_slice.len();
+
+        // Calculate auto scroll constraint
+        let content_height = log_area.height.saturating_sub(2) as usize;
+        let max_scroll = logs_len.saturating_sub(content_height) as u16;
+
+        if self.auto_scroll {
+            self.log_scroll_offset = max_scroll;
+        } else if self.log_scroll_offset > max_scroll {
+            self.log_scroll_offset = max_scroll;
         }
+
+        let log_viewer = LogViewer {
+            task_name: selected_name.as_deref(),
+            logs: logs_slice,
+            scroll_offset: self.log_scroll_offset,
+        };
+        frame.render_widget(log_viewer, log_area);
 
         // --- Execution Flow Graph ---
         let flow_graph = FlowGraph { store: &store };
@@ -178,13 +200,9 @@ impl App {
             _ => {}
         }
 
-        let store = Store {
-            runner: &self.runner,
-            visible_tasks: &self.visible_tasks,
-        };
-
         // 2. Delegate key handling to TaskList
-        if let Some(event) = TaskList::handle_key_event(key_event, self.selected_task_index, &store)
+        if let Some(event) =
+            TaskList::handle_key_event(key_event, self.selected_task_index, &self.visible_tasks)
         {
             match event {
                 TaskListEvent::Select(new_index) => {
@@ -208,23 +226,24 @@ impl App {
 
         // 3. Delegate to LogViewer for log scroll control
         if let Some(selected_name) = self.selected_task_name() {
-            let states_guard = self.runner.states.lock().unwrap();
-            if let Some(state) = states_guard.get(&selected_name) {
-                let logs_len = state.output.lock().unwrap().len();
+            let logs_len = self
+                .cached_logs
+                .get(&selected_name)
+                .map(|v| v.len())
+                .unwrap_or(0);
 
-                // Estimate log area height from window dimensions
-                let (_, term_height) = crossterm::terminal::size().unwrap_or((80, 24));
-                let area_height = term_height.saturating_sub(6); // body area height
+            // Estimate log area height from window dimensions
+            let (_, term_height) = crossterm::terminal::size().unwrap_or((80, 24));
+            let area_height = term_height.saturating_sub(6); // body area height
 
-                if let Some((offset, auto)) = LogViewer::handle_key_event(
-                    key_event,
-                    self.log_scroll_offset,
-                    logs_len,
-                    area_height,
-                ) {
-                    self.log_scroll_offset = offset;
-                    self.auto_scroll = auto;
-                }
+            if let Some((offset, auto)) = LogViewer::handle_key_event(
+                key_event,
+                self.log_scroll_offset,
+                logs_len,
+                area_height,
+            ) {
+                self.log_scroll_offset = offset;
+                self.auto_scroll = auto;
             }
         }
     }

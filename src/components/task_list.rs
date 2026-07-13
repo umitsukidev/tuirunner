@@ -22,12 +22,12 @@ impl TaskList<'_> {
     pub fn handle_key_event(
         key: KeyEvent,
         current_index: usize,
-        store: &Store,
+        visible_tasks: &[String],
     ) -> Option<TaskListEvent> {
         if key.modifiers.contains(KeyModifiers::SHIFT) {
             return None;
         }
-        let order = store.visible_tasks;
+        let order = visible_tasks;
         let mut idx = current_index;
 
         match key.code {
@@ -66,14 +66,14 @@ impl Widget for TaskList<'_> {
     fn render(self, area: Rect, buf: &mut Buffer) {
         let mut list_items = Vec::new();
         let execution_order = self.store.visible_tasks;
-        let states_guard = self.store.runner.states.lock().unwrap();
+        let statuses = self.store.task_statuses;
 
         for (i, name) in execution_order.iter().enumerate() {
-            let state = match states_guard.get(name) {
+            let status = match statuses.get(name) {
                 Some(s) => s,
                 None => continue,
             };
-            let (status_icon, base_style) = match state.status {
+            let (status_icon, base_style) = match status {
                 TaskStatus::Idle => ("  ·  ", Style::default().fg(Color::DarkGray)),
                 TaskStatus::Pending => ("  ~  ", Style::default().fg(Color::Yellow)),
                 TaskStatus::Running => (

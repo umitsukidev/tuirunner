@@ -15,8 +15,8 @@ pub struct FlowGraph<'a> {
 impl Widget for FlowGraph<'_> {
     fn render(self, area: Rect, buf: &mut Buffer) {
         let execution_order = self.store.visible_tasks;
-        let tasks = &self.store.runner.tasks;
-        let states_guard = self.store.runner.states.lock().unwrap();
+        let tasks = self.store.tasks;
+        let statuses = self.store.task_statuses;
 
         // Calculate levels (column positions) for topological execution order
         let mut levels = HashMap::new();
@@ -86,8 +86,8 @@ impl Widget for FlowGraph<'_> {
             for c in 0..=max_level {
                 let width = col_widths[c];
                 if let Some(ref name) = grid[r][c] {
-                    let state = states_guard.get(name).unwrap();
-                    let color = match state.status {
+                    let status = statuses.get(name).copied().unwrap_or(TaskStatus::Idle);
+                    let color = match status {
                         TaskStatus::Idle => Color::DarkGray,
                         TaskStatus::Pending => Color::Yellow,
                         TaskStatus::Running => Color::Blue,
