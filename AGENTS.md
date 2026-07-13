@@ -5,10 +5,16 @@ This repository follows a strict **React-like Component-Oriented Architecture** 
 ## 1. React-like Component-Oriented Design (TUI Components)
 TUI widgets should behave like modern declarative UI components:
 
-- **Stateless Sub-Components (Props Down)**:
+- **Stateless Sub-Components & Pure Rendering (Props Down)**:
   - Sub-components (e.g., [TaskList](file:///Users/kyg/Documents/GitHub/umitsuki/tuirunner/src/components/task_list.rs), [FlowGraph](file:///Users/kyg/Documents/GitHub/umitsuki/tuirunner/src/components/flow_graph.rs)) should not manage their own internal states or directly mutate global state.
-  - Pass read-only views or configuration structs (acting like React **Props**) during component instantiation or rendering. Use the [Store](file:///Users/kyg/Documents/GitHub/umitsuki/tuirunner/src/store.rs) to distribute shared data.
+  - All widget rendering must be **pure, declarative, and free of side-effects or lock acquisitions**. Do NOT acquire mutex locks (e.g., `.lock()`) inside `Widget::render` or widget sub-methods.
+  - Pass read-only views, primitive types, or configuration structs (acting like React **Props**) during component instantiation or rendering. Use the [Store](file:///Users/kyg/Documents/GitHub/umitsuki/tuirunner/src/store.rs) to distribute shared data.
   
+- **Non-Blocking UI & Cache Fallback**:
+  - The main TUI event loop/rendering thread must never block waiting for background runner locks.
+  - When retrieving dynamic state from shared mutexes, use `.try_lock()` rather than blocking `.lock()`.
+  - Maintain a local state cache in `App`. If a `.try_lock()` fails because a background worker thread is holding the lock, immediately fall back and render using the last cached snapshot. This guarantees the UI remains responsive and free of frame drops or deadlocks.
+
 - **Event Delegation (Events Up)**:
   - When a component captures user interaction (e.g., keyboard events), it should translate them into specialized event enums (e.g., `TaskListEvent`) and return them to the parent.
   - Do NOT trigger side-effects directly inside the child component. Let the parent component handle the event and update the application state.
