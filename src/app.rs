@@ -19,10 +19,21 @@ pub struct App {
 }
 
 impl App {
-    pub fn new(runner: TaskRunner) -> Self {
+    pub fn new(runner: TaskRunner, initial_tasks: Vec<String>) -> Self {
+        let mut selected_task_index = 0;
+        if let Some(first_task) = initial_tasks.first() {
+            if let Some(pos) = runner.execution_order.iter().position(|name| name == first_task) {
+                selected_task_index = pos;
+            }
+        }
+
+        if !initial_tasks.is_empty() {
+            runner.run_tasks(&initial_tasks);
+        }
+
         Self {
             runner,
-            selected_task_index: 0,
+            selected_task_index,
             log_scroll_offset: 0,
             exit: false,
             auto_scroll: true,

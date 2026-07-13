@@ -44,10 +44,11 @@ pub struct TaskRunner {
     pub execution_order: Vec<String>,
     pub states: Arc<Mutex<HashMap<String, TaskState>>>,
     pub condvar: Arc<Condvar>,
+    pub is_tui: bool,
 }
 
 impl TaskRunner {
-    pub fn new(tasks_config: TasksConfig) -> Result<Self, RunnerError> {
+    pub fn new(tasks_config: TasksConfig, is_tui: bool) -> Result<Self, RunnerError> {
         let tasks = tasks_config.tasks;
         let execution_order = resolve_dependencies(&tasks)?;
 
@@ -67,7 +68,16 @@ impl TaskRunner {
             execution_order,
             states: Arc::new(Mutex::new(states_map)),
             condvar: Arc::new(Condvar::new()),
+            is_tui,
         })
+    }
+
+    pub fn get_subgraph(&self, targets: &[String]) -> HashSet<String> {
+        let mut subgraph = HashSet::new();
+        for target in targets {
+            get_subgraph(&self.tasks, target, &mut subgraph);
+        }
+        subgraph
     }
 
     #[allow(dead_code)]
@@ -80,6 +90,15 @@ impl TaskRunner {
         get_subgraph(&self.tasks, target_name, &mut target_subgraph);
         self.spawn_scheduler_thread(target_subgraph);
     }
+
+    pub fn run_tasks(&self, targets: &[String]) {
+        let mut target_subgraph = HashSet::new();
+        for target in targets {
+            get_subgraph(&self.tasks, target, &mut target_subgraph);
+        }
+        self.spawn_scheduler_thread(target_subgraph);
+    }
+
 
     pub fn run_all(&self) {
         let target_subgraph: HashSet<String> = self.tasks.keys().cloned().collect();
@@ -117,6 +136,8 @@ impl TaskRunner {
         let states = Arc::clone(&self.states);
         let condvar = Arc::clone(&self.condvar);
         let tasks = self.tasks.clone();
+        let is_tui = self.is_tui;
+        let execution_order = self.execution_order.clone();
 
         std::thread::spawn(move || {
             loop {
@@ -175,6 +196,25 @@ impl TaskRunner {
                     state_mut.status = TaskStatus::Running;
 
                     let output_buf = Arc::clone(&state_mut.output);
+                    let name_clone = name.clone();
+
+                    let prefix = if !is_tui {
+                        let colors = [
+                            crossterm::style::Color::Blue,
+                            crossterm::style::Color::Green,
+                            crossterm::style::Color::Yellow,
+                            crossterm::style::Color::Magenta,
+                            crossterm::style::Color::Cyan,
+                            crossterm::style::Color::Red,
+                        ];
+                        let task_idx = execution_order.iter().position(|n| n == &name_clone).unwrap_or(0);
+                        let color = colors[task_idx % colors.len()];
+                        use crossterm::style::Stylize;
+                        Some(format!("{}", format!("[{}]", name_clone).with(color).bold()))
+                    } else {
+                        None
+                    };
+
                     {
                         let mut buf = output_buf.lock().unwrap();
                         buf.clear();
@@ -182,12 +222,12 @@ impl TaskRunner {
                     }
 
                     let task_config = tasks.get(&name).unwrap().clone();
-                    let name_clone = name.clone();
                     let states_worker = Arc::clone(&states);
                     let condvar_worker = Arc::clone(&condvar);
+                    let prefix_worker = prefix.clone();
 
                     std::thread::spawn(move || {
-                        let result = execute_command_capturing(&task_config, &output_buf);
+                        let result = execute_command_capturing(&task_config, &output_buf, &prefix_worker);
 
                         let mut guard = states_worker.lock().unwrap();
                         let s = guard.get_mut(&name_clone).unwrap();
@@ -238,6 +278,7 @@ fn run_shell_command(
     cmd_str: &str,
     working_dir: &Option<std::path::PathBuf>,
     output_buf: &Arc<Mutex<Vec<String>>>,
+    prefix: &Option<String>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let mut command = std::process::Command::new("sh");
     command.arg("-c").arg(cmd_str);
@@ -253,10 +294,14 @@ fn run_shell_command(
     let stderr = child.stderr.take().ok_or("Failed to open stderr")?;
 
     let output_buf_stdout = Arc::clone(output_buf);
+    let prefix_stdout = prefix.clone();
     let stdout_handle = std::thread::spawn(move || {
         let reader = BufReader::new(stdout);
         for line in reader.lines() {
             if let Ok(l) = line {
+                if let Some(ref pref) = prefix_stdout {
+                    println!("{} {}", pref, l);
+                }
                 let mut buf = output_buf_stdout.lock().unwrap();
                 buf.push(l);
             }
@@ -264,10 +309,14 @@ fn run_shell_command(
     });
 
     let output_buf_stderr = Arc::clone(output_buf);
+    let prefix_stderr = prefix.clone();
     let stderr_handle = std::thread::spawn(move || {
         let reader = BufReader::new(stderr);
         for line in reader.lines() {
             if let Ok(l) = line {
+                if let Some(ref pref) = prefix_stderr {
+                    eprintln!("{} [stderr] {}", pref, l);
+                }
                 let mut buf = output_buf_stderr.lock().unwrap();
                 buf.push(format!("[stderr] {}", l));
             }
@@ -288,19 +337,23 @@ fn run_shell_command(
 fn execute_command_capturing(
     task: &Task,
     output_buf: &Arc<Mutex<Vec<String>>>,
+    prefix: &Option<String>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     match &task.run {
         None => Ok(()),
         Some(RunCommand::Single(cmd_str)) => {
-            run_shell_command(cmd_str, &task.working_dir, output_buf)
+            run_shell_command(cmd_str, &task.working_dir, output_buf, prefix)
         }
         Some(RunCommand::Multiple(cmds)) => {
             for cmd_str in cmds {
+                if let Some(pref) = prefix {
+                    println!("{} $ {}", pref, cmd_str);
+                }
                 {
                     let mut buf = output_buf.lock().unwrap();
                     buf.push(format!("$ {}", cmd_str));
                 }
-                run_shell_command(cmd_str, &task.working_dir, output_buf)?;
+                run_shell_command(cmd_str, &task.working_dir, output_buf, prefix)?;
             }
             Ok(())
         }
