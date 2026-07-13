@@ -122,6 +122,10 @@ mod tests {
         let config = TasksConfig { tasks };
         let res = validate_tasks_config(&config, &());
         assert!(res.is_err());
-        assert!(res.unwrap_err().to_string().contains("cannot have both 'run' and 'cmd'"));
+        assert!(
+            res.unwrap_err()
+                .to_string()
+                .contains("cannot have both 'run' and 'cmd'")
+        );
     }
 }

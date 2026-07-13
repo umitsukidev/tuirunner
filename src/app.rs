@@ -25,7 +25,8 @@ impl App {
             runner.execution_order.clone()
         } else {
             let subgraph = runner.get_subgraph(&initial_tasks);
-            runner.execution_order
+            runner
+                .execution_order
                 .iter()
                 .filter(|name| subgraph.contains(*name))
                 .cloned()
@@ -62,9 +63,7 @@ impl App {
     }
 
     fn selected_task_name(&self) -> Option<String> {
-        self.visible_tasks
-            .get(self.selected_task_index)
-            .cloned()
+        self.visible_tasks.get(self.selected_task_index).cloned()
     }
 
     fn draw(&mut self, frame: &mut Frame) {

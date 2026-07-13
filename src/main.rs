@@ -2,58 +2,42 @@ mod app;
 mod cli;
 mod components;
 mod config;
+mod non_tui;
 mod runner;
 mod store;
 mod utils;
 
-use app::App;
-use config::AppConfig;
-use runner::TaskRunner;
-use std::path::PathBuf;
+use crate::{
+    app::App,
+    cli::{Cli, Commands},
+    config::AppConfig,
+    runner::TaskRunner,
+};
+use clap::{CommandFactory, Parser};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // エラーハンドリングの初期化
     color_eyre::install()?;
 
-    let args: Vec<String> = std::env::args().collect();
+    let cli = Cli::parse();
 
-    // スキーマの早期出力
-    if args.len() > 1 && (args[1] == "--schema" || args[1] == "schema") {
+    // スキーマの出力、または補完の出力
+    if cli.schema || matches!(cli.command, Some(Commands::Schema)) {
         let schema = schemars::schema_for!(AppConfig);
         println!("{}", serde_json::to_string_pretty(&schema).unwrap());
         return Ok(());
     }
 
-    let mut config_path = PathBuf::from("runner.config.toml");
-    let mut no_tui = false;
-    let mut targets = Vec::new();
-
-    let mut skip = false;
-    for i in 1..args.len() {
-        if skip {
-            skip = false;
-            continue;
-        }
-        let arg = &args[i];
-        if arg == "--config" || arg == "-c" {
-            if i + 1 < args.len() {
-                config_path = PathBuf::from(&args[i + 1]);
-                skip = true;
-            } else {
-                eprintln!("Error: Missing value for --config flag");
-                std::process::exit(1);
-            }
-        } else if arg.starts_with("--config=") {
-            config_path = PathBuf::from(arg.trim_start_matches("--config="));
-        } else if arg == "--no-tui" {
-            no_tui = true;
-        } else if arg.starts_with("-") {
-            eprintln!("Error: Unknown flag '{}'", arg);
-            std::process::exit(1);
-        } else {
-            targets.push(arg.clone());
-        }
+    if let Some(Commands::Completions { shell }) = cli.command {
+        let mut cmd = Cli::command();
+        let bin_name = cmd.get_name().to_string();
+        clap_complete::generate(shell, &mut cmd, bin_name, &mut std::io::stdout());
+        return Ok(());
     }
+
+    let config_path = cli.config;
+    let no_tui = cli.no_tui;
+    let targets = cli.targets;
 
     // 設定ファイルの読み込みとバリデーション
     let config = match AppConfig::load_from_file(&config_path) {
@@ -77,7 +61,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     if !use_tui {
         // 非TUIモード実行
-        if let Err(e) = cli::run_non_tui(&runner, &targets) {
+        if let Err(e) = non_tui::run_non_tui(&runner, &targets) {
             eprintln!("Error: {}", e);
             std::process::exit(1);
         }
