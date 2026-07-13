@@ -124,7 +124,7 @@ When running in TUI mode, use the following keybindings to interact with the app
 
 ### Prerequisites
 
-Ensure you have Rust (MSRV 1.85.0+ / 2024 edition) installed.
+Ensure you have Rust (MSRV 1.88.0+ / 2024 edition) installed.
 
 ### Building from Source
 

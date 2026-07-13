@@ -2,7 +2,7 @@
 
 [package]
 name = "tuirunner"
-version = "0.1.0-alpha.1"
+version = "0.1.0-alpha.2"
 edition = "2024"
 rust-version = "1.88.0"
 license = "MIT"
@@ -29,5 +29,10 @@ schemars = { version = "0.8.21", features = ["preserve_order"] }
 clap = { version = "4.5", features = ["derive"] }
 clap_complete = "4.5"
 yaml_serde = "0.10.4"
-tokio = { version = "1.52.3", features = ["rt-multi-thread", "macros", "process", "sync", "io-util"] }
-
+tokio = { version = "1.52.3", features = [
+    "rt-multi-thread",
+    "macros",
+    "process",
+    "sync",
+    "io-util",
+] }
