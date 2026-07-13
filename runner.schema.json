@@ -30,6 +30,14 @@
             }
           ]
         },
+        "cmd": {
+          "description": "The command(s) to run (dimmed command execution printed to console)",
+          "allOf": [
+            {
+              "$ref": "#/definitions/RunCommand"
+            }
+          ]
+        },
         "working_dir": {
           "description": "The working directory in which the command(s) should be executed",
           "default": null,
@@ -43,6 +51,9 @@
             "type": "string"
           }
         }
+      },
+      "not": {
+        "required": ["run", "cmd"]
       }
     },
     "RunCommand": {

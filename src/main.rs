@@ -16,7 +16,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     color_eyre::install()?;
 
     let args: Vec<String> = std::env::args().collect();
-    
+
     // スキーマの早期出力
     if args.len() > 1 && (args[1] == "--schema" || args[1] == "schema") {
         let schema = schemars::schema_for!(AppConfig);

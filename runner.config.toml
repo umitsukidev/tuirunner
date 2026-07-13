@@ -17,7 +17,7 @@ run = "echo 'Running unit tests...'; sleep 1.5; echo 'All 15 tests passed!'"
 depends_on = ["build"]
 
 [tasks.deploy]
-run = [
+cmd = [
     "echo 'Preparing deployment bundle...'",
     "sleep 1",
     "echo 'Uploading assets to CDN...'",

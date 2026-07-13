@@ -99,7 +99,6 @@ impl TaskRunner {
         self.spawn_scheduler_thread(target_subgraph);
     }
 
-
     pub fn run_all(&self) {
         let target_subgraph: HashSet<String> = self.tasks.keys().cloned().collect();
         self.spawn_scheduler_thread(target_subgraph);
@@ -207,10 +206,16 @@ impl TaskRunner {
                             crossterm::style::Color::Cyan,
                             crossterm::style::Color::Red,
                         ];
-                        let task_idx = execution_order.iter().position(|n| n == &name_clone).unwrap_or(0);
+                        let task_idx = execution_order
+                            .iter()
+                            .position(|n| n == &name_clone)
+                            .unwrap_or(0);
                         let color = colors[task_idx % colors.len()];
                         use crossterm::style::Stylize;
-                        Some(format!("{}", format!("[{}]", name_clone).with(color).bold()))
+                        Some(format!(
+                            "{}",
+                            format!("[{}]", name_clone).with(color).bold()
+                        ))
                     } else {
                         None
                     };
@@ -227,7 +232,8 @@ impl TaskRunner {
                     let prefix_worker = prefix.clone();
 
                     std::thread::spawn(move || {
-                        let result = execute_command_capturing(&task_config, &output_buf, &prefix_worker);
+                        let result =
+                            execute_command_capturing(&task_config, &output_buf, &prefix_worker);
 
                         let mut guard = states_worker.lock().unwrap();
                         let s = guard.get_mut(&name_clone).unwrap();
@@ -339,15 +345,32 @@ fn execute_command_capturing(
     output_buf: &Arc<Mutex<Vec<String>>>,
     prefix: &Option<String>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    match &task.run {
+    let run_cmd = if let Some(ref r) = task.run {
+        Some((r, false))
+    } else if let Some(ref c) = task.cmd {
+        Some((c, true))
+    } else {
+        None
+    };
+
+    match run_cmd {
         None => Ok(()),
-        Some(RunCommand::Single(cmd_str)) => {
+        Some((RunCommand::Single(cmd_str), show_command)) => {
+            if show_command {
+                if let Some(pref) = prefix {
+                    use crossterm::style::Stylize;
+                    println!("{} {}", pref, format!("$ {}", cmd_str).dim());
+                }
+            }
             run_shell_command(cmd_str, &task.working_dir, output_buf, prefix)
         }
-        Some(RunCommand::Multiple(cmds)) => {
+        Some((RunCommand::Multiple(cmds), show_command)) => {
             for cmd_str in cmds {
-                if let Some(pref) = prefix {
-                    println!("{} $ {}", pref, cmd_str);
+                if show_command {
+                    if let Some(pref) = prefix {
+                        use crossterm::style::Stylize;
+                        println!("{} {}", pref, format!("$ {}", cmd_str).dim());
+                    }
                 }
                 {
                     let mut buf = output_buf.lock().unwrap();
@@ -383,6 +406,7 @@ mod tests {
     fn make_task(depends_on: Option<Vec<&str>>) -> Task {
         Task {
             run: Some(RunCommand::Single("echo test".to_string())),
+            cmd: None,
             working_dir: None,
             depends_on: depends_on.map(|v| v.into_iter().map(String::from).collect()),
         }

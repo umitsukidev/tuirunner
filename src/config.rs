@@ -40,11 +40,16 @@ pub enum RunCommand {
 /// Configuration details for an individual task
 #[derive(Debug, Clone, Deserialize, Validate, JsonSchema)]
 pub struct Task {
-    /// The command(s) to run
+    /// The command(s) to run (hidden command execution)
     #[serde(default)]
     #[garde(skip)]
     #[schemars(with = "RunCommand")]
     pub run: Option<RunCommand>,
+    /// The command(s) to run (dimmed command execution printed to console)
+    #[serde(default)]
+    #[garde(skip)]
+    #[schemars(with = "RunCommand")]
+    pub cmd: Option<RunCommand>,
     /// The working directory in which the command(s) should be executed
     #[serde(default)]
     #[garde(skip)]
@@ -77,6 +82,13 @@ impl AppConfig {
 
 fn validate_tasks_config(tasks_config: &TasksConfig, _ctx: &()) -> garde::Result {
     for (task_name, task) in &tasks_config.tasks {
+        if task.run.is_some() && task.cmd.is_some() {
+            return Err(garde::Error::new(format!(
+                "Task '{}' cannot have both 'run' and 'cmd' specified. They are mutually exclusive.",
+                task_name
+            )));
+        }
+
         if let Some(depends_on) = &task.depends_on {
             for dep in depends_on {
                 if !tasks_config.tasks.contains_key(dep) {
@@ -89,4 +101,27 @@ fn validate_tasks_config(tasks_config: &TasksConfig, _ctx: &()) -> garde::Result
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_task_mutual_exclusion() {
+        let mut tasks = HashMap::new();
+        tasks.insert(
+            "invalid_task".to_string(),
+            Task {
+                run: Some(RunCommand::Single("echo run".to_string())),
+                cmd: Some(RunCommand::Single("echo cmd".to_string())),
+                working_dir: None,
+                depends_on: None,
+            },
+        );
+        let config = TasksConfig { tasks };
+        let res = validate_tasks_config(&config, &());
+        assert!(res.is_err());
+        assert!(res.unwrap_err().to_string().contains("cannot have both 'run' and 'cmd'"));
+    }
 }
