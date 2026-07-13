@@ -2,7 +2,7 @@ use garde::Validate;
 use serde::Deserialize;
 use std::{collections::HashMap, path::PathBuf};
 
-#[derive(Debug, Deserialize, Validate)]
+#[derive(Debug, Clone, Deserialize, Validate)]
 pub struct AppConfig {
     #[serde(default)]
     #[garde(skip)]
@@ -12,7 +12,7 @@ pub struct AppConfig {
     pub tasks: TasksConfig,
 }
 
-#[derive(Debug, Default, Deserialize, Validate)]
+#[derive(Debug, Clone, Default, Deserialize, Validate)]
 #[garde(custom(validate_tasks_config))]
 pub struct TasksConfig {
     #[serde(flatten)]
@@ -20,14 +20,14 @@ pub struct TasksConfig {
     pub tasks: HashMap<String, Task>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(untagged)]
 pub enum RunCommand {
     Single(String),
     Multiple(Vec<String>),
 }
 
-#[derive(Debug, Deserialize, Validate)]
+#[derive(Debug, Clone, Deserialize, Validate)]
 pub struct Task {
     #[serde(default)]
     #[garde(skip)]
@@ -36,6 +36,24 @@ pub struct Task {
     pub working_dir: Option<PathBuf>,
     #[garde(skip)]
     pub depends_on: Option<Vec<String>>,
+}
+
+impl AppConfig {
+    pub fn load_from_file(path: &std::path::Path) -> Result<Self, Box<dyn std::error::Error>> {
+        let content = std::fs::read_to_string(path)?;
+        let extension = path.extension().and_then(|ext| ext.to_str()).unwrap_or("");
+
+        let config: AppConfig = match extension {
+            "json" => serde_json::from_str(&content)?,
+            "yaml" | "yml" => serde_yaml::from_str(&content)?,
+            "toml" => toml::from_str(&content)?,
+            _ => toml::from_str(&content)?, // デフォルトはTOMLとしてパース試行
+        };
+
+        config.validate()?;
+
+        Ok(config)
+    }
 }
 
 fn validate_tasks_config(tasks_config: &TasksConfig, _ctx: &()) -> garde::Result {

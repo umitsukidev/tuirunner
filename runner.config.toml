@@ -1,0 +1,25 @@
+tui = true
+
+[tasks.clean]
+run = "echo 'Cleaning build artifacts...'; sleep 1; echo 'Clean complete!'"
+
+[tasks.codegen]
+run = "echo 'Generating source code from templates...'; sleep 2; echo 'Codegen complete!'"
+
+[tasks.build]
+run = "echo 'Compiling source files...'; sleep 3; echo 'Compilation successful!'"
+depends_on = ["clean", "codegen"]
+
+[tasks.test]
+run = "echo 'Running unit tests...'; sleep 1.5; echo 'All 15 tests passed!'"
+depends_on = ["build"]
+
+[tasks.deploy]
+run = [
+    "echo 'Preparing deployment bundle...'",
+    "sleep 1",
+    "echo 'Uploading assets to CDN...'",
+    "sleep 1",
+    "echo 'Deployment to staging complete!'"
+]
+depends_on = ["test"]

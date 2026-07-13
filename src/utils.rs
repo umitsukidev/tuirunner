@@ -1,5 +1,4 @@
-use std::collections::HashMap;
-use std::hash::Hash;
+use std::{collections::HashMap, hash::Hash};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum TopologicalSortError<N> {

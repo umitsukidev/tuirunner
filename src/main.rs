@@ -1,100 +1,62 @@
+mod app;
 mod config;
 mod runner;
 mod utils;
 
-use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
-use ratatui::{
-    DefaultTerminal, Frame,
-    buffer::Buffer,
-    layout::Rect,
-    style::Stylize,
-    symbols::border,
-    text::{Line, Text},
-    widgets::{Block, Paragraph, Widget},
-};
-use std::io;
+use app::App;
+use config::AppConfig;
+use runner::TaskRunner;
+use std::path::PathBuf;
 
-#[derive(Debug, Default)]
-pub struct App {
-    counter: u8,
-    exit: bool,
-}
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // エラーハンドリングの初期化
+    color_eyre::install()?;
 
-impl App {
-    /// runs the application's main loop until the user quits
-    pub fn run(&mut self, terminal: &mut DefaultTerminal) -> io::Result<()> {
-        while !self.exit {
-            terminal.draw(|frame| self.draw(frame))?;
-            self.handle_events()?;
+    // 引数から設定ファイルのパスを取得、未指定なら "runner.config.toml"
+    let args: Vec<String> = std::env::args().collect();
+    let config_path = if args.len() > 1 {
+        PathBuf::from(&args[1])
+    } else {
+        PathBuf::from("runner.config.toml")
+    };
+
+    // 設定ファイルの読み込みとバリデーション
+    let config = match AppConfig::load_from_file(&config_path) {
+        Ok(c) => c,
+        Err(e) => {
+            eprintln!("Error loading configuration from {:?}: {}", config_path, e);
+            std::process::exit(1);
         }
-        Ok(())
+    };
+
+    // tui=falseのときはtodo!を発生させる
+    if !config.tui {
+        todo!("Non-TUI mode is not implemented yet");
     }
 
-    fn draw(&self, frame: &mut Frame) {
-        frame.render_widget(self, frame.area());
-    }
-
-    fn handle_events(&mut self) -> io::Result<()> {
-        match event::read()? {
-            // it's important to check that the event is a key press event as
-            // crossterm also emits key release and repeat events on Windows.
-            Event::Key(key_event) if key_event.kind == KeyEventKind::Press => {
-                self.handle_key_event(key_event)
-            }
-            _ => {}
-        };
-        Ok(())
-    }
-
-    fn handle_key_event(&mut self, key_event: KeyEvent) {
-        match key_event.code {
-            KeyCode::Char('q') => self.exit(),
-            KeyCode::Left => self.decrement_counter(),
-            KeyCode::Right => self.increment_counter(),
-            _ => {}
+    // タスクランナーの初期化と依存関係解決
+    let runner = match TaskRunner::new(config.tasks) {
+        Ok(r) => r,
+        Err(e) => {
+            eprintln!("Configuration error: {}", e);
+            std::process::exit(1);
         }
+    };
+
+    // ターミナル初期化
+    let mut terminal = ratatui::init();
+
+    // TUIアプリの構築と実行
+    let mut app = App::new(runner);
+    let app_result = app.run(&mut terminal);
+
+    // ターミナルの復元
+    ratatui::restore();
+
+    if let Err(err) = app_result {
+        eprintln!("TUI Application error: {:?}", err);
+        std::process::exit(1);
     }
-    fn exit(&mut self) {
-        self.exit = true;
-    }
 
-    fn increment_counter(&mut self) {
-        self.counter += 1;
-    }
-
-    fn decrement_counter(&mut self) {
-        self.counter -= 1;
-    }
-}
-
-impl Widget for &App {
-    fn render(self, area: Rect, buf: &mut Buffer) {
-        let title = Line::from(" Counter App Tutorial ".bold());
-        let instructions = Line::from(vec![
-            " Decrement ".into(),
-            "<Left>".blue().bold(),
-            " Increment ".into(),
-            "<Right>".blue().bold(),
-            " Quit ".into(),
-            "<Q> ".blue().bold(),
-        ]);
-        let block = Block::bordered()
-            .title(title.centered())
-            .title_bottom(instructions.centered())
-            .border_set(border::THICK);
-
-        let counter_text = Text::from(vec![Line::from(vec![
-            "Value: ".into(),
-            self.counter.to_string().yellow(),
-        ])]);
-
-        Paragraph::new(counter_text)
-            .centered()
-            .block(block)
-            .render(area, buf);
-    }
-}
-
-fn main() -> io::Result<()> {
-    ratatui::run(|terminal| App::default().run(terminal))
+    Ok(())
 }
