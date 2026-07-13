@@ -96,7 +96,7 @@ working_dir = "./deploy_script"
 
 #### Configuration Fields
 
-- **`tui`** (boolean, default: `false`): Enable/disable the TUI mode by default.
+- **`tui`** (boolean, default: `true`): Enable/disable the TUI mode by default.
 - **`tasks`** (map): A map of tasks where the key is the task name.
   - **`run`** (string or list of strings): Command(s) to execute silently. The command strings are executed under `sh -c`. (Mutually exclusive with `cmd`).
   - **`cmd`** (string or list of strings): Command(s) to execute. Similar to `run`, but prints command invocation to stdout/stderr. (Mutually exclusive with `run`).

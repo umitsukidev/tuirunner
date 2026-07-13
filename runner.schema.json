@@ -6,7 +6,7 @@
   "properties": {
     "tui": {
       "description": "Whether to enable the TUI (Terminal User Interface) mode",
-      "default": false,
+      "default": true,
       "type": "boolean"
     },
     "tasks": {

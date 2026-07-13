@@ -3,11 +3,15 @@ use schemars::JsonSchema;
 use serde::Deserialize;
 use std::{collections::HashMap, path::PathBuf};
 
+fn default_tui() -> bool {
+    true
+}
+
 /// The basic application configuration
 #[derive(Debug, Clone, Deserialize, Validate, JsonSchema)]
 pub struct AppConfig {
     /// Whether to enable the TUI (Terminal User Interface) mode
-    #[serde(default)]
+    #[serde(default = "default_tui")]
     #[garde(skip)]
     pub tui: bool,
     /// The map of tasks to define and run
