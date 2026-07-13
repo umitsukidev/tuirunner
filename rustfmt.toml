@@ -1,0 +1,4 @@
+#:schema https://www.schemastore.org/rustfmt.json
+
+reorder_imports = true
+reorder_modules = true

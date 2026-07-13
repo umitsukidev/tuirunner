@@ -1,0 +1,10 @@
+#:schema https://raw.githubusercontent.com/streetsidesoftware/cspell/main/cspell.schema.json
+
+language = "en"
+ignorePaths = ["Cargo.lock", "target"]
+dictionaries = ["task-runner"]
+
+[[dictionaryDefinitions]]
+name = "task-runner"
+path = "./cspell.txt"
+addWords = true

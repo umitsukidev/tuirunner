@@ -1,0 +1,55 @@
+use garde::Validate;
+use serde::Deserialize;
+use std::{collections::HashMap, path::PathBuf};
+
+#[derive(Debug, Deserialize, Validate)]
+pub struct AppConfig {
+    #[serde(default)]
+    #[garde(skip)]
+    pub tui: bool,
+    #[serde(default)]
+    #[garde(dive)]
+    pub tasks: TasksConfig,
+}
+
+#[derive(Debug, Default, Deserialize, Validate)]
+#[garde(custom(validate_tasks_config))]
+pub struct TasksConfig {
+    #[serde(flatten)]
+    #[garde(dive)]
+    pub tasks: HashMap<String, Task>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(untagged)]
+pub enum RunCommand {
+    Single(String),
+    Multiple(Vec<String>),
+}
+
+#[derive(Debug, Deserialize, Validate)]
+pub struct Task {
+    #[serde(default)]
+    #[garde(skip)]
+    pub run: Option<RunCommand>,
+    #[garde(skip)]
+    pub working_dir: Option<PathBuf>,
+    #[garde(skip)]
+    pub depends_on: Option<Vec<String>>,
+}
+
+fn validate_tasks_config(tasks_config: &TasksConfig, _ctx: &()) -> garde::Result {
+    for (task_name, task) in &tasks_config.tasks {
+        if let Some(depends_on) = &task.depends_on {
+            for dep in depends_on {
+                if !tasks_config.tasks.contains_key(dep) {
+                    return Err(garde::Error::new(format!(
+                        "Task '{}' depends on non-existent task '{}'",
+                        task_name, dep
+                    )));
+                }
+            }
+        }
+    }
+    Ok(())
+}

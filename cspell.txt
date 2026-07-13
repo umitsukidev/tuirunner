@@ -1,0 +1,4 @@
+crossterm
+ratatui
+serde
+tuirunner
