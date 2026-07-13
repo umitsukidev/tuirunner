@@ -20,6 +20,6 @@ run = [
     "sleep 1",
     "echo 'Uploading assets to CDN...'",
     "sleep 1",
-    "echo 'Deployment to staging complete!'"
+    "echo 'Deployment to staging complete!'",
 ]
-depends_on = ["test"]
+depends_on = ["build"]
