@@ -22,36 +22,44 @@
 To install `tuir`, run the following command:
 
 ```bash
-cargo install --git https://github.com/umitsukidev/tuirunner.git
+cargo install tuirunner
 ```
 
 This will compile and install the `tuir` binary into your Cargo bin directory (e.g., `~/.cargo/bin`), which should be in your system's `PATH`.
 
 ### Usage
 
-By default, `tuir` looks for [runner.config.toml](./runner.config.toml) in the current directory.
+By default, `tuir` looks for [runner.config.toml](./runner.config.toml) in the current directory. Running `tuir` without any subcommand will display the help message. Use the `run` subcommand to execute tasks.
 
 ```bash
-# Run all tasks in TUI or CLI mode (as configured)
+# Show help message
 tuir
 
-# Run specific tasks and their dependency subgraphs
-tuir build test
+# Run all tasks in TUI or CLI mode (as configured)
+tuir run
 
-# Run without TUI mode
-tuir --no-tui
+# Run specific tasks and their dependency subgraphs
+tuir run build test
+
+# Run without TUI mode (CLI mode)
+tuir --no-tui run
 
 # Use a custom config file (JSON, YAML, or TOML)
-tuir --config custom-config.yaml
-tuir -c custom-config.json
+tuir --config custom-config.yaml run
+tuir -c custom-config.json run
 ```
 
-#### Command Line Options
+#### Commands
+
+- `run`: Run tasks.
+  - `[TARGETS]...`: Specific task name(s) to execute. If omitted, all tasks will be run.
+- `schema`: Output the JSON schema of the configuration file and exit immediately. Useful for editor integration.
+- `completions <shell>`: Generate shell completion script to stdout.
+
+#### Global Options
 
 - `-c <path>`, `--config <path>`: Path to the configuration file (default: [runner.config.toml](./runner.config.toml)). Can also use `--config=<path>`.
 - `--no-tui`: Bypass the TUI interface and execute tasks directly in the CLI.
-- `schema`, `--schema`: Output the JSON schema of the configuration file and exit immediately. Useful for editor integration.
-- `<target...>`: Specific task name(s) to execute. Only these targets and their dependencies will run.
 
 ### Configuration
 
@@ -144,7 +152,7 @@ To update the JSON schema for configuration autocomplete, generate and reference
 
 ```bash
 # Generate schema using cargo run
-cargo run -- --schema > runner.schema.json
+cargo run -- schema > runner.schema.json
 
 # Or using mise if installed:
 mise run schema

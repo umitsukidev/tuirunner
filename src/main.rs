@@ -21,23 +21,37 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let cli = Cli::parse();
 
-    // スキーマの出力、または補完の出力
-    if cli.schema || matches!(cli.command, Some(Commands::Schema)) {
+    // スキーマの出力（グローバルフラグ用）
+    if cli.schema {
         let schema = schemars::schema_for!(AppConfig);
         println!("{}", serde_json::to_string_pretty(&schema).unwrap());
         return Ok(());
     }
 
-    if let Some(Commands::Completions { shell }) = cli.command {
-        let mut cmd = Cli::command();
-        let bin_name = cmd.get_name().to_string();
-        clap_complete::generate(shell, &mut cmd, bin_name, &mut std::io::stdout());
-        return Ok(());
-    }
+    // サブコマンドの処理およびtargetsの抽出
+    let targets = match cli.command {
+        Some(Commands::Run { targets }) => targets,
+        Some(Commands::Schema) => {
+            let schema = schemars::schema_for!(AppConfig);
+            println!("{}", serde_json::to_string_pretty(&schema).unwrap());
+            return Ok(());
+        }
+        Some(Commands::Completions { shell }) => {
+            let mut cmd = Cli::command();
+            let bin_name = cmd.get_name().to_string();
+            clap_complete::generate(shell, &mut cmd, bin_name, &mut std::io::stdout());
+            return Ok(());
+        }
+        None => {
+            let mut cmd = Cli::command();
+            cmd.print_help()?;
+            println!();
+            return Ok(());
+        }
+    };
 
     let config_path = cli.config;
     let no_tui = cli.no_tui;
-    let targets = cli.targets;
 
     // 設定ファイルの読み込みとバリデーション
     let config = match AppConfig::load_from_file(&config_path) {

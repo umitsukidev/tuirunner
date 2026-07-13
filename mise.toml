@@ -3,4 +3,4 @@ rust = "latest"
 
 [tasks.schema]
 description = "Generate JSON Schema for runner.config.toml"
-run = "cargo run -- --schema > runner.schema.json"
+run = "cargo run -- schema > runner.schema.json"
