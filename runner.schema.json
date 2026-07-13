@@ -23,7 +23,7 @@
       "type": "object",
       "properties": {
         "run": {
-          "description": "The command(s) to run",
+          "description": "The command(s) to run (hidden command execution)",
           "allOf": [
             {
               "$ref": "#/definitions/RunCommand"
@@ -51,9 +51,6 @@
             "type": "string"
           }
         }
-      },
-      "not": {
-        "required": ["run", "cmd"]
       }
     },
     "RunCommand": {
