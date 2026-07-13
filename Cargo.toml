@@ -7,16 +7,7 @@ edition = "2024"
 rust-version = "1.88.0"
 license = "MIT"
 authors = ["kurage <git@umitsuki.dev>"]
-keywords = [
-    "cli",
-    "tui",
-    "async",
-    "concurrent",
-    "task-runner",
-    "workflow",
-    "parallel",
-    "productivity",
-]
+keywords = ["cli", "tui", "concurrent", "task-runner", "workflow"]
 description = "A concurrent task runner with a TUI interface built on Ratatui."
 homepage = "https://github.com/umitsukidev/tuirunner"
 repository = "https://github.com/umitsukidev/tuirunner"
