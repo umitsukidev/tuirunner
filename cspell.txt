@@ -1,9 +1,11 @@
 codegen
 Condvar
 crossterm
+kurage
 MSRV
 ratatui
 schemars
 serde
 tuir
 tuirunner
+umitsukidev
