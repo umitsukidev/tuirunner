@@ -1,4 +1,4 @@
-# tuir
+# TuiRunner (tuir)
 
 `tuir` is a concurrent task runner with a terminal user interface (TUI) and command-line interface (CLI) written in Rust, built on top of [ratatui](https://github.com/ratatui/ratatui). It allows users to define a dependency graph of tasks and execute them concurrently with real-time log capturing.
 
@@ -151,6 +151,7 @@ mise run schema
 ```
 
 In your config files, you can link the schema as follows:
+
 ```toml
 #:schema ./runner.schema.json
 ```
