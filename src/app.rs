@@ -67,7 +67,7 @@ impl App {
         // 状態取得
         let states_guard = self.runner.states.lock().unwrap();
 
-        // --- 左サイドバー: タスク一覧 ---
+        // --- Left sidebar: Task list ---
         let mut list_items = Vec::new();
         for (i, name) in self.runner.execution_order.iter().enumerate() {
             let state = states_guard.get(name).unwrap();
@@ -162,19 +162,19 @@ impl App {
             frame.render_widget(empty_paragraph, log_area);
         }
 
-        // --- 下部ヘルプバー ---
+        // --- Bottom help bar ---
         let help_text = Line::from(vec![
-            " 移動: ".into(),
+            " Move: ".into(),
             "↑/↓/j/k".bold().cyan(),
-            " | 実行: ".into(),
+            " | Run: ".into(),
             "r/Enter".bold().green(),
-            " | 全実行: ".into(),
+            " | Run All: ".into(),
             "a".bold().green(),
-            " | ログスクロール: ".into(),
+            " | Scroll Log: ".into(),
             "PgUp/PgDn/Shift+↑/Shift+↓".bold().cyan(),
-            " | クリア: ".into(),
-            "c (個別)/C (全)".bold().yellow(),
-            " | 終了: ".into(),
+            " | Clear: ".into(),
+            "c (selected)/C (all)".bold().yellow(),
+            " | Quit: ".into(),
             "q/Esc".bold().red(),
         ]);
         let help_paragraph = Paragraph::new(help_text);
