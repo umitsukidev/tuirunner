@@ -128,6 +128,8 @@ When running in TUI mode, use the following keybindings to interact with the app
 | `C` (Shift+C)             | Clear output logs of all tasks                                    |
 | `PgUp` / `PgDn`           | Scroll logs up/down by half a page                                |
 | `Shift + ↑` / `Shift + ↓` | Scroll logs up/down line by line                                  |
+| `i`                       | Enter "Interactive Input Mode" for the selected running task      |
+| `Esc` (interactive mode)  | Exit Interactive Input Mode and return to standard TUI control    |
 | `q` / `Esc`               | Quit the application                                              |
 
 ---
