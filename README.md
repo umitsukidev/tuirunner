@@ -111,7 +111,7 @@ When running in TUI mode, use the following keybindings to interact with the app
 | ------------------------- | -------------------------------------------- |
 | `↑` / `↓` / `j` / `k`     | Move selection in the Task List              |
 | `r` / `Enter`             | Run the selected task (and its dependencies) |
-| `a`                       | Run all tasks in the list                    |
+| `A`                       | Run all tasks in the list                    |
 | `c`                       | Clear output logs of the selected task       |
 | `C` (Shift+C)             | Clear output logs of all tasks               |
 | `PgUp` / `PgDn`           | Scroll logs up/down by half a page           |
