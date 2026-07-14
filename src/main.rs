@@ -107,6 +107,22 @@ tasks:
             return Ok(());
         }
         Some(Commands::Run { targets }) => targets,
+        Some(Commands::External(args)) => {
+            if args.len() > 1 {
+                eprintln!(
+                    "Error: Multiple tasks are not allowed when executing a task directly. Use 'run' subcommand for multiple tasks."
+                );
+                std::process::exit(1);
+            }
+            if args.is_empty() {
+                let mut cmd = Cli::command();
+                cmd.print_help()?;
+                println!();
+                return Ok(());
+            }
+            let task_name = args[0].clone();
+            vec![task_name]
+        }
         Some(Commands::Schema) => {
             let schema = schemars::schema_for!(AppConfig);
             println!("{}", serde_json::to_string_pretty(&schema).unwrap());
@@ -148,6 +164,14 @@ tasks:
             std::process::exit(1);
         }
     };
+
+    // Validate target task names exist if targets are specified
+    for target in &targets {
+        if !runner.tasks.contains_key(target) {
+            eprintln!("Error: Task '{}' not found in configuration", target);
+            std::process::exit(1);
+        }
+    }
 
     if !use_tui {
         // 非TUIモード実行

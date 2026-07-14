@@ -66,6 +66,8 @@ pub enum Commands {
         #[arg(value_enum)]
         shell: Shell,
     },
+    #[command(external_subcommand)]
+    External(Vec<String>),
 }
 
 #[cfg(test)]
@@ -129,5 +131,15 @@ mod tests {
         let args2 = vec!["tuir", "init", "--yaml", "--json"];
         let res2 = Cli::try_parse_from(args2);
         assert!(res2.is_err());
+    }
+
+    #[test]
+    fn test_cli_external_subcommand() {
+        let args = vec!["tuir", "build"];
+        let cli = Cli::try_parse_from(args).unwrap();
+        assert_eq!(
+            cli.command,
+            Some(Commands::External(vec!["build".to_string()]))
+        );
     }
 }
