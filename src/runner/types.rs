@@ -15,6 +15,7 @@ pub struct TaskState {
     pub status: TaskStatus,
     pub output: Arc<Mutex<LogBuffer>>,
     pub child_pid: Option<u32>,
+    pub stopped_as_success: bool,
 }
 
 #[derive(Debug, PartialEq, Eq)]

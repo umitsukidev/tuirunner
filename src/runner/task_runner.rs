@@ -33,6 +33,7 @@ impl TaskRunner {
                     status: TaskStatus::Idle,
                     output: Arc::new(Mutex::new(crate::runner::log_buffer::LogBuffer::default())),
                     child_pid: None,
+                    stopped_as_success: false,
                 },
             );
         }
@@ -103,6 +104,7 @@ impl TaskRunner {
                 if let Some(state) = states_guard.get_mut(name) {
                     if state.status != TaskStatus::Running && state.status != TaskStatus::Pending {
                         state.status = TaskStatus::Pending;
+                        state.stopped_as_success = false;
                         let mut out = state.output.lock().unwrap();
                         out.clear();
                         out.push(format!("=== Task queued: {} ===", name));
@@ -231,21 +233,31 @@ impl TaskRunner {
 
                             let mut guard = states_worker.lock().unwrap();
                             let s = guard.get_mut(&name_clone).unwrap();
-                            s.status = if result.is_ok() {
+                            let force_success = s.stopped_as_success;
+                            s.status = if result.is_ok() || force_success {
                                 TaskStatus::Success
                             } else {
                                 TaskStatus::Failed
                             };
                             {
                                 let mut buf = output_buf.lock().unwrap();
-                                match result {
+                                match &result {
                                     Ok(_) => {
                                         buf.push(format!("=== Task succeeded: {} ===", name_clone))
                                     }
-                                    Err(e) => buf.push(format!(
-                                        "=== Task failed: {}: {} ===",
-                                        name_clone, e
-                                    )),
+                                    Err(e) => {
+                                        if force_success {
+                                            buf.push(format!(
+                                                "=== Task stopped (treated as success): {} ===",
+                                                name_clone
+                                            ))
+                                        } else {
+                                            buf.push(format!(
+                                                "=== Task failed: {}: {} ===",
+                                                name_clone, e
+                                            ))
+                                        }
+                                    }
                                 }
                             }
                             notify_worker.notify_one();
@@ -261,6 +273,39 @@ impl TaskRunner {
                 notify.notified().await;
             }
         })
+    }
+
+    pub fn stop_task(&self, task_name: &str, force_success: bool) {
+        let mut states_guard = self.states.lock().unwrap();
+        if let Some(state) = states_guard.get_mut(task_name) {
+            match state.status {
+                TaskStatus::Running => {
+                    state.stopped_as_success = force_success;
+                    if let Some(pid) = state.child_pid {
+                        #[cfg(unix)]
+                        {
+                            let pgid = -(pid as libc::pid_t);
+                            let _ = unsafe { libc::kill(pgid, libc::SIGINT) };
+                        }
+                    }
+                }
+                TaskStatus::Pending => {
+                    state.status = if force_success {
+                        TaskStatus::Success
+                    } else {
+                        TaskStatus::Failed
+                    };
+                    let mut out = state.output.lock().unwrap();
+                    if force_success {
+                        out.push("=== Task stopped: skipped as success ===".to_string());
+                    } else {
+                        out.push("=== Task stopped: skipped as failed ===".to_string());
+                    }
+                    self.notify.notify_one();
+                }
+                _ => {}
+            }
+        }
     }
 
     pub async fn shutdown(&self) {
@@ -500,5 +545,112 @@ mod tests {
             states.get("resident").unwrap().child_pid
         };
         assert!(current_pid.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_stop_running_task_as_failed() {
+        let mut tasks = HashMap::new();
+        tasks.insert(
+            "task_a".to_string(),
+            Task {
+                description: None,
+                run: Some(RunCommand::Single("sleep 10".to_string())),
+                cmd: None,
+                working_dir: None,
+                depends_on: None,
+            },
+        );
+
+        let config = TasksConfig { tasks };
+        let runner = TaskRunner::new(config, true).unwrap();
+
+        let handle = runner.run_task("task_a");
+        tokio::time::sleep(tokio::time::Duration::from_millis(150)).await;
+
+        runner.stop_task("task_a", false);
+
+        handle.await.unwrap();
+
+        let states = runner.states.lock().unwrap();
+        let state = states.get("task_a").unwrap();
+        assert_eq!(state.status, TaskStatus::Failed);
+    }
+
+    #[tokio::test]
+    async fn test_stop_running_task_as_success() {
+        let mut tasks = HashMap::new();
+        tasks.insert(
+            "task_a".to_string(),
+            Task {
+                description: None,
+                run: Some(RunCommand::Single("sleep 10".to_string())),
+                cmd: None,
+                working_dir: None,
+                depends_on: None,
+            },
+        );
+
+        let config = TasksConfig { tasks };
+        let runner = TaskRunner::new(config, true).unwrap();
+
+        let handle = runner.run_task("task_a");
+        tokio::time::sleep(tokio::time::Duration::from_millis(150)).await;
+
+        runner.stop_task("task_a", true);
+
+        handle.await.unwrap();
+
+        let states = runner.states.lock().unwrap();
+        let state = states.get("task_a").unwrap();
+        assert_eq!(state.status, TaskStatus::Success);
+    }
+
+    #[tokio::test]
+    async fn test_stop_pending_task() {
+        let mut tasks = HashMap::new();
+        tasks.insert(
+            "task_a".to_string(),
+            Task {
+                description: None,
+                run: Some(RunCommand::Single("sleep 10".to_string())),
+                cmd: None,
+                working_dir: None,
+                depends_on: None,
+            },
+        );
+        tasks.insert(
+            "task_b".to_string(),
+            Task {
+                description: None,
+                run: Some(RunCommand::Single("echo hello".to_string())),
+                cmd: None,
+                working_dir: None,
+                depends_on: Some(vec!["task_a".to_string()]),
+            },
+        );
+
+        let config = TasksConfig { tasks };
+        let runner = TaskRunner::new(config, true).unwrap();
+
+        let handle = runner.run_tasks(&["task_a".to_string(), "task_b".to_string()]);
+        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+
+        // task_b should be pending because task_a is still running
+        {
+            let states = runner.states.lock().unwrap();
+            assert_eq!(states.get("task_b").unwrap().status, TaskStatus::Pending);
+        }
+
+        // stop task_b as Success
+        runner.stop_task("task_b", true);
+
+        // stop task_a as Success to let scheduler finish
+        runner.stop_task("task_a", true);
+
+        handle.await.unwrap();
+
+        let states = runner.states.lock().unwrap();
+        assert_eq!(states.get("task_a").unwrap().status, TaskStatus::Success);
+        assert_eq!(states.get("task_b").unwrap().status, TaskStatus::Success);
     }
 }

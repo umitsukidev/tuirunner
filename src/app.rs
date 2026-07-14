@@ -254,6 +254,12 @@ impl App {
                     self.log_scroll_offset = 0;
                     self.auto_scroll = true;
                 }
+                TaskListEvent::Stop(name) => {
+                    self.runner.stop_task(&name, false);
+                }
+                TaskListEvent::StopAndNext(name) => {
+                    self.runner.stop_task(&name, true);
+                }
             }
             return;
         }

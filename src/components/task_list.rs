@@ -11,6 +11,8 @@ pub enum TaskListEvent {
     Select(usize),
     Run(String),
     Clear(String),
+    Stop(String),
+    StopAndNext(String),
 }
 
 pub struct TaskList<'a> {
@@ -24,31 +26,39 @@ impl TaskList<'_> {
         current_index: usize,
         visible_tasks: &[String],
     ) -> Option<TaskListEvent> {
-        if key.modifiers.contains(KeyModifiers::SHIFT) {
-            return None;
-        }
+        let has_shift = key.modifiers.contains(KeyModifiers::SHIFT);
         let order = visible_tasks;
         let mut idx = current_index;
 
         match key.code {
-            KeyCode::Up | KeyCode::Char('k') => {
+            KeyCode::Up | KeyCode::Char('k') if !has_shift => {
                 if idx > 0 {
                     idx -= 1;
                 }
             }
-            KeyCode::Down | KeyCode::Char('j') => {
+            KeyCode::Down | KeyCode::Char('j') if !has_shift => {
                 if idx + 1 < order.len() {
                     idx += 1;
                 }
             }
-            KeyCode::Char('r') | KeyCode::Enter => {
+            KeyCode::Char('r') | KeyCode::Enter if !has_shift => {
                 if let Some(name) = order.get(idx) {
                     return Some(TaskListEvent::Run(name.clone()));
                 }
             }
-            KeyCode::Char('c') => {
+            KeyCode::Char('c') if !has_shift => {
                 if let Some(name) = order.get(idx) {
                     return Some(TaskListEvent::Clear(name.clone()));
+                }
+            }
+            KeyCode::Char('s') if !has_shift => {
+                if let Some(name) = order.get(idx) {
+                    return Some(TaskListEvent::Stop(name.clone()));
+                }
+            }
+            KeyCode::Char('S') | KeyCode::Char('s') if has_shift => {
+                if let Some(name) = order.get(idx) {
+                    return Some(TaskListEvent::StopAndNext(name.clone()));
                 }
             }
             _ => {}

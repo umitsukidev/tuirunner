@@ -36,6 +36,7 @@ tokio = { version = "1.52.3", features = [
     "sync",
     "io-util",
     "time",
+    "signal",
 ] }
 ansi-to-tui = "8.0.1"
 libc = "0.2"

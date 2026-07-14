@@ -21,14 +21,22 @@ pub async fn run_non_tui(
     };
 
     // Trigger parallel execution via the task scheduler and wait for it to complete
-    let handle = if targets.is_empty() {
+    let mut handle = if targets.is_empty() {
         runner.run_all()
     } else {
         runner.run_tasks(targets)
     };
 
-    // Wait for the scheduler to complete
-    let _ = handle.await;
+    // Wait for the scheduler to complete or SIGINT
+    tokio::select! {
+        _ = &mut handle => {}
+        _ = tokio::signal::ctrl_c() => {
+            eprintln!("\nReceived SIGINT. Shutting down tasks gracefully...");
+            handle.abort();
+            runner.shutdown().await;
+            return Ok(());
+        }
+    }
 
     // Execution finished. Check if any tasks failed.
     let states_guard = runner.states.lock().unwrap();
