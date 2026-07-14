@@ -4,33 +4,25 @@ on:
   push:
     tags:
       - "v*"
-  workflow_run:
-    workflows: ["Release Tag on PR Merge"]
-    types:
-      - completed
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to release (e.g. v0.1.0)"
+        required: true
+        type: string
 
 jobs:
   check-branch:
     name: Verify Branch
     runs-on: ubuntu-latest
-    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     outputs:
       tag: ${{ steps.get_ref.outputs.tag }}
     steps:
-      - name: Download version artifact
-        if: ${{ github.event_name == 'workflow_run' }}
-        uses: actions/download-artifact@v4
-        with:
-          name: release-version
-          run-id: ${{ github.event.workflow_run.id }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Determine tag ref
         id: get_ref
         run: |
-          if [ "${{ github.event_name }}" = "workflow_run" ]; then
-            VERSION=$(cat version.txt)
-            echo "tag=$VERSION" >> $GITHUB_OUTPUT
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=${{ github.event.inputs.tag }}" >> $GITHUB_OUTPUT
           else
             echo "tag=${{ github.ref_name }}" >> $GITHUB_OUTPUT
           fi
