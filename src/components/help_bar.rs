@@ -16,7 +16,7 @@ impl Widget for HelpBar {
             " | Run: ".into(),
             "r/Enter".bold().green(),
             " | Run All: ".into(),
-            "a".bold().green(),
+            "A".bold().green(),
             " | Scroll Log: ".into(),
             "PgUp/PgDn/Shift+↑/Shift+↓".bold().cyan(),
             " | Clear: ".into(),

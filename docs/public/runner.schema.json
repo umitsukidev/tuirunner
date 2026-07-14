@@ -1,78 +1,81 @@
 {
-    "$schema": "http://json-schema.org/draft-07/schema#",
-    "title": "AppConfig",
-    "description": "The basic application configuration",
-    "type": "object",
-    "properties": {
-        "tui": {
-            "description": "Whether to enable the TUI (Terminal User Interface) mode",
-            "default": true,
-            "type": "boolean"
-        },
-        "tasks": {
-            "description": "The map of tasks to define and run",
-            "type": "object",
-            "additionalProperties": {
-                "$ref": "#/definitions/Task"
-            }
-        }
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "TuirConfig",
+  "description": "The basic application configuration",
+  "type": "object",
+  "properties": {
+    "tui": {
+      "description": "Whether to enable the TUI (Terminal User Interface) mode",
+      "default": true,
+      "type": "boolean"
     },
-    "definitions": {
-        "Task": {
-            "description": "Configuration details for an individual task",
-            "type": "object",
-            "properties": {
-                "description": {
-                    "description": "A brief description of what the task does",
-                    "default": null,
-                    "type": ["string", "null"]
-                },
-                "run": {
-                    "description": "The command(s) to run (hidden command execution)",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/RunCommand"
-                        }
-                    ]
-                },
-                "cmd": {
-                    "description": "The command(s) to run (dimmed command execution printed to console)",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/RunCommand"
-                        }
-                    ]
-                },
-                "working_dir": {
-                    "description": "The working directory in which the command(s) should be executed",
-                    "default": null,
-                    "type": "string"
-                },
-                "depends_on": {
-                    "description": "A list of task names that this task depends on and must run after",
-                    "default": null,
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                }
-            }
-        },
-        "RunCommand": {
-            "description": "A command to run, which can be a single string or an array of strings",
-            "anyOf": [
-                {
-                    "description": "Runs a single command string",
-                    "type": "string"
-                },
-                {
-                    "description": "Runs multiple command strings in sequence",
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                }
-            ]
-        }
+    "tasks": {
+      "description": "The map of tasks to define and run",
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/definitions/Task"
+      }
     }
+  },
+  "definitions": {
+    "Task": {
+      "description": "Configuration details for an individual task",
+      "type": "object",
+      "properties": {
+        "description": {
+          "description": "A brief description of what the task does",
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "run": {
+          "description": "The command(s) to run (hidden command execution)",
+          "allOf": [
+            {
+              "$ref": "#/definitions/RunCommand"
+            }
+          ]
+        },
+        "cmd": {
+          "description": "The command(s) to run (dimmed command execution printed to console)",
+          "allOf": [
+            {
+              "$ref": "#/definitions/RunCommand"
+            }
+          ]
+        },
+        "working_dir": {
+          "description": "The working directory in which the command(s) should be executed",
+          "default": null,
+          "type": "string"
+        },
+        "depends_on": {
+          "description": "A list of task names that this task depends on and must run after",
+          "default": null,
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "RunCommand": {
+      "description": "A command to run, which can be a single string or an array of strings",
+      "anyOf": [
+        {
+          "description": "Runs a single command string",
+          "type": "string"
+        },
+        {
+          "description": "Runs multiple command strings in sequence",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      ]
+    }
+  }
 }

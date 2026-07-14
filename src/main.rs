@@ -9,7 +9,7 @@ mod utils;
 
 use crate::{
     app::App,
-    cli::{Cli, Commands},
+    cli::{Cli, Commands, ConfigFormat},
     config::AppConfig,
     runner::TaskRunner,
 };
@@ -31,7 +31,98 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // サブコマンドの処理およびtargetsの抽出
     let targets = match cli.command {
+        Some(Commands::Init {
+            format,
+            toml,
+            yaml,
+            json,
+        }) => {
+            let final_format = if toml {
+                ConfigFormat::Toml
+            } else if yaml {
+                ConfigFormat::Yaml
+            } else if json {
+                ConfigFormat::Json
+            } else {
+                format.unwrap_or(ConfigFormat::Toml)
+            };
+
+            // Check if runner.config.{toml,yaml,yml,json} already exists.
+            let files = [
+                "runner.config.toml",
+                "runner.config.yaml",
+                "runner.config.yml",
+                "runner.config.json",
+            ];
+            for file in &files {
+                let path = std::path::Path::new(file);
+                if path.exists() {
+                    eprintln!("Error: {} already exists", file);
+                    std::process::exit(1);
+                }
+            }
+
+            // Create the configuration file based on format
+            let (filename, content) = match final_format {
+                ConfigFormat::Toml => (
+                    "runner.config.toml",
+                    r#"#:schema https://tuir.umitsuki.dev/runner.schema.json
+
+tui = true
+
+[tasks.hello]
+description = "Say hello"
+cmd = "echo 'Hello, World!'"
+"#,
+                ),
+                ConfigFormat::Yaml => (
+                    "runner.config.yaml",
+                    r#"# yaml-language-server: $schema=https://tuir.umitsuki.dev/runner.schema.json
+
+tui: true
+tasks:
+  hello:
+    description: "Say hello"
+    cmd: "echo 'Hello, World!'"
+"#,
+                ),
+                ConfigFormat::Json => (
+                    "runner.config.json",
+                    r#"{
+  "$schema": "https://tuir.umitsuki.dev/runner.schema.json",
+  "tui": true,
+  "tasks": {
+    "hello": {
+      "description": "Say hello",
+      "cmd": "echo 'Hello, World!'"
+    }
+  }
+}
+"#,
+                ),
+            };
+
+            std::fs::write(filename, content)?;
+            println!("Initialized {}", filename);
+            return Ok(());
+        }
         Some(Commands::Run { targets }) => targets,
+        Some(Commands::External(args)) => {
+            if args.len() > 1 {
+                eprintln!(
+                    "Error: Multiple tasks are not allowed when executing a task directly. Use 'run' subcommand for multiple tasks."
+                );
+                std::process::exit(1);
+            }
+            if args.is_empty() {
+                let mut cmd = Cli::command();
+                cmd.print_help()?;
+                println!();
+                return Ok(());
+            }
+            let task_name = args[0].clone();
+            vec![task_name]
+        }
         Some(Commands::Schema) => {
             let schema = schemars::schema_for!(AppConfig);
             println!("{}", serde_json::to_string_pretty(&schema).unwrap());
@@ -73,6 +164,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             std::process::exit(1);
         }
     };
+
+    // Validate target task names exist if targets are specified
+    for target in &targets {
+        if !runner.tasks.contains_key(target) {
+            eprintln!("Error: Task '{}' not found in configuration", target);
+            std::process::exit(1);
+        }
+    }
 
     if !use_tui {
         // 非TUIモード実行

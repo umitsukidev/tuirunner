@@ -9,6 +9,7 @@ fn default_tui() -> bool {
 
 /// The basic application configuration
 #[derive(Debug, Clone, Deserialize, Validate, JsonSchema)]
+#[schemars(rename = "TuirConfig")]
 pub struct AppConfig {
     /// Whether to enable the TUI (Terminal User Interface) mode
     #[serde(default = "default_tui")]
@@ -90,6 +91,12 @@ impl AppConfig {
 
 fn validate_tasks_config(tasks_config: &TasksConfig, _ctx: &()) -> garde::Result {
     for (task_name, task) in &tasks_config.tasks {
+        if task_name == "run" {
+            return Err(garde::Error::new(
+                "Task name 'run' is reserved and cannot be used as a task name.",
+            ));
+        }
+
         if task.run.is_some() && task.cmd.is_some() {
             return Err(garde::Error::new(format!(
                 "Task '{}' cannot have both 'run' and 'cmd' specified. They are mutually exclusive.",
@@ -135,6 +142,29 @@ mod tests {
             res.unwrap_err()
                 .to_string()
                 .contains("cannot have both 'run' and 'cmd'")
+        );
+    }
+
+    #[test]
+    fn test_task_run_name_forbidden() {
+        let mut tasks = HashMap::new();
+        tasks.insert(
+            "run".to_string(),
+            Task {
+                description: None,
+                run: Some(RunCommand::Single("echo run".to_string())),
+                cmd: None,
+                working_dir: None,
+                depends_on: None,
+            },
+        );
+        let config = TasksConfig { tasks };
+        let res = validate_tasks_config(&config, &());
+        assert!(res.is_err());
+        assert!(
+            res.unwrap_err()
+                .to_string()
+                .contains("Task name 'run' is reserved")
         );
     }
 }

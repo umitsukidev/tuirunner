@@ -193,7 +193,7 @@ impl App {
                 self.exit = true;
                 return;
             }
-            KeyCode::Char('a') => {
+            KeyCode::Char('A') => {
                 self.runner.run_all();
                 self.log_scroll_offset = 0;
                 self.auto_scroll = true;
