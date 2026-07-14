@@ -82,7 +82,7 @@ pub async fn run_shell_command(
     let child_stdin = child.stdin.take();
 
     let stdin_handle = if let Some(mut child_in) = child_stdin {
-        tokio::spawn(async move {
+        Some(tokio::spawn(async move {
             use tokio::io::AsyncWriteExt;
             while let Some(bytes) = stdin_rx.recv().await {
                 if child_in.write_all(&bytes).await.is_err() {
@@ -90,9 +90,9 @@ pub async fn run_shell_command(
                 }
                 let _ = child_in.flush().await;
             }
-        })
+        }))
     } else {
-        tokio::spawn(async {})
+        None
     };
 
     let output_buf_stdout = Arc::clone(output_buf);
@@ -146,7 +146,9 @@ pub async fn run_shell_command(
     });
 
     let _ = tokio::join!(stdout_handle, stderr_handle);
-    stdin_handle.abort();
+    if let Some(handle) = stdin_handle {
+        handle.abort();
+    }
 
     let status = child.wait().await?;
     if status.success() {

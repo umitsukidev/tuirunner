@@ -224,15 +224,22 @@ impl App {
 
     fn handle_key_event(&mut self, key_event: KeyEvent) {
         if self.is_interactive {
-            if key_event.code == KeyCode::Esc {
+            let has_stdin = if let Some(selected_name) = self.selected_task_name() {
+                self.cached_statuses.get(&selected_name) == Some(&TaskStatus::Running)
+            } else {
+                false
+            };
+
+            if !has_stdin {
+                self.is_interactive = false;
+            } else if key_event.code == KeyCode::Esc {
                 self.is_interactive = false;
                 return;
-            }
-
-            if let Some(selected_name) = self.selected_task_name() {
-                let tx = {
-                    let states = self.runner.states.lock().unwrap();
+            } else if let Some(selected_name) = self.selected_task_name() {
+                let tx = if let Ok(states) = self.runner.states.try_lock() {
                     states.get(&selected_name).and_then(|s| s.stdin_tx.clone())
+                } else {
+                    None
                 };
                 if let Some(tx) = tx {
                     let bytes = match key_event.code {
@@ -269,8 +276,8 @@ impl App {
                         let _ = tx.send(bytes);
                     }
                 }
+                return;
             }
-            return;
         }
 
         // 1. Global keyboard shortcuts
@@ -281,12 +288,13 @@ impl App {
             }
             KeyCode::Char('i') => {
                 if let Some(selected_name) = self.selected_task_name() {
-                    let has_stdin = {
-                        let states = self.runner.states.lock().unwrap();
+                    let has_stdin = if let Ok(states) = self.runner.states.try_lock() {
                         states
                             .get(&selected_name)
                             .map(|s| s.status == TaskStatus::Running && s.stdin_tx.is_some())
                             .unwrap_or(false)
+                    } else {
+                        self.cached_statuses.get(&selected_name) == Some(&TaskStatus::Running)
                     };
                     if has_stdin {
                         self.is_interactive = true;
