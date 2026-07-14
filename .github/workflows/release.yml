@@ -99,6 +99,8 @@ jobs:
     needs: [check-branch, build-binaries]
     name: Create GitHub Release & Publish
     runs-on: ubuntu-latest
+    environment:
+      name: umitsukidev
     permissions:
       contents: write
       id-token: write
