@@ -31,7 +31,8 @@ impl TaskRunner {
                 name.clone(),
                 TaskState {
                     status: TaskStatus::Idle,
-                    output: Arc::new(Mutex::new(Vec::new())),
+                    output: Arc::new(Mutex::new(crate::runner::log_buffer::LogBuffer::default())),
+                    child_pid: None,
                 },
             );
         }
@@ -220,6 +221,8 @@ impl TaskRunner {
 
                         tokio::spawn(async move {
                             let result = cmd::execute_command_capturing(
+                                &name_clone,
+                                &states_worker,
                                 &task_config,
                                 &output_buf,
                                 &prefix_worker,
@@ -258,6 +261,48 @@ impl TaskRunner {
                 notify.notified().await;
             }
         })
+    }
+
+    pub async fn shutdown(&self) {
+        let pids: Vec<u32> = {
+            let states_guard = self.states.lock().unwrap();
+            states_guard
+                .values()
+                .filter_map(|state| state.child_pid)
+                .collect()
+        };
+
+        if pids.is_empty() {
+            return;
+        }
+
+        #[cfg(unix)]
+        {
+            for &pid in &pids {
+                // Send SIGINT (signal 2) to the process group (negative PID)
+                let pgid = -(pid as libc::pid_t);
+                let _ = unsafe { libc::kill(pgid, libc::SIGINT) };
+            }
+        }
+
+        tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+
+        let remaining_pids: Vec<u32> = {
+            let states_guard = self.states.lock().unwrap();
+            states_guard
+                .values()
+                .filter_map(|state| state.child_pid)
+                .collect()
+        };
+
+        #[cfg(unix)]
+        {
+            for &pid in &remaining_pids {
+                // Send SIGKILL (signal 9) to the process group (negative PID)
+                let pgid = -(pid as libc::pid_t);
+                let _ = unsafe { libc::kill(pgid, libc::SIGKILL) };
+            }
+        }
     }
 }
 
@@ -413,5 +458,47 @@ mod tests {
             let states = runner.states.lock().unwrap();
             assert_eq!(states.get("A").unwrap().status, TaskStatus::Success);
         }
+    }
+
+    #[tokio::test]
+    async fn test_graceful_shutdown() {
+        let mut tasks = HashMap::new();
+        tasks.insert(
+            "resident".to_string(),
+            Task {
+                description: None,
+                run: Some(RunCommand::Single("sleep 10".to_string())),
+                cmd: None,
+                working_dir: None,
+                depends_on: None,
+            },
+        );
+
+        let config = TasksConfig { tasks };
+        let runner = TaskRunner::new(config, true).unwrap();
+
+        let _handle = runner.run_task("resident");
+
+        // Wait a bit for the command to spawn
+        tokio::time::sleep(tokio::time::Duration::from_millis(150)).await;
+
+        // Verify it is running and has a PID
+        let pid = {
+            let states = runner.states.lock().unwrap();
+            let state = states.get("resident").unwrap();
+            assert_eq!(state.status, TaskStatus::Running);
+            state.child_pid
+        };
+        assert!(pid.is_some());
+
+        // Perform shutdown
+        runner.shutdown().await;
+
+        // Verify that the child_pid is cleared (set to None) after shutdown
+        let current_pid = {
+            let states = runner.states.lock().unwrap();
+            states.get("resident").unwrap().child_pid
+        };
+        assert!(current_pid.is_none());
     }
 }

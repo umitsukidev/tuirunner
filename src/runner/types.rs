@@ -1,3 +1,4 @@
+use crate::runner::log_buffer::LogBuffer;
 use std::sync::{Arc, Mutex};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -12,7 +13,8 @@ pub enum TaskStatus {
 #[derive(Debug, Clone)]
 pub struct TaskState {
     pub status: TaskStatus,
-    pub output: Arc<Mutex<Vec<String>>>,
+    pub output: Arc<Mutex<LogBuffer>>,
+    pub child_pid: Option<u32>,
 }
 
 #[derive(Debug, PartialEq, Eq)]

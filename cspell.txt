@@ -4,10 +4,13 @@ crossterm
 esbuild
 Frontmatter
 kurage
+libc
 MSRV
 njsproj
 ntvs
 oxlint
+pgid
+pids
 ratatui
 schemars
 serde

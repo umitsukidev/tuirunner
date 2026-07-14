@@ -2279,6 +2279,7 @@ dependencies = [
  "color-eyre",
  "crossterm",
  "garde",
+ "libc",
  "ratatui",
  "schemars",
  "serde",

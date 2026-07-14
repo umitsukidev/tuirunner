@@ -187,7 +187,7 @@ tasks:
 
     // TUIアプリの構築と実行
     let mut app = App::new(runner, targets);
-    let app_result = app.run(&mut terminal);
+    let app_result = app.run(&mut terminal).await;
 
     // ターミナルの復元
     ratatui::restore();
