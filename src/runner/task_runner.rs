@@ -34,6 +34,7 @@ impl TaskRunner {
                     output: Arc::new(Mutex::new(crate::runner::log_buffer::LogBuffer::default())),
                     child_pid: None,
                     stopped_as_success: false,
+                    stdin_tx: None,
                 },
             );
         }
@@ -228,6 +229,7 @@ impl TaskRunner {
                                 &task_config,
                                 &output_buf,
                                 &prefix_worker,
+                                is_tui,
                             )
                             .await;
 
