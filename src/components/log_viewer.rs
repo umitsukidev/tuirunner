@@ -12,6 +12,7 @@ pub struct LogViewer<'a> {
     pub task_description: Option<&'a str>,
     pub logs: &'a [String],
     pub scroll_offset: u16,
+    pub is_interactive: bool,
 }
 
 impl LogViewer<'_> {
@@ -67,11 +68,20 @@ impl LogViewer<'_> {
 impl<'a> Widget for LogViewer<'a> {
     fn render(self, area: Rect, buf: &mut Buffer) {
         if let Some(name) = self.task_name {
-            let log_title = format!(" Output: {} ", name);
+            let log_title = if self.is_interactive {
+                format!(" Output (Interactive): {} ", name)
+            } else {
+                format!(" Output: {} ", name)
+            };
+            let border_color = if self.is_interactive {
+                Color::Yellow
+            } else {
+                Color::Cyan
+            };
             let log_block = Block::default()
                 .title(log_title)
                 .borders(Borders::ALL)
-                .border_style(Style::default().fg(Color::Cyan));
+                .border_style(Style::default().fg(border_color));
 
             let inner_area = log_block.inner(area);
             log_block.render(area, buf);

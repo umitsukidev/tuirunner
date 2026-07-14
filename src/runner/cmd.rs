@@ -19,6 +19,7 @@ pub async fn run_shell_command(
     working_dir: &Option<std::path::PathBuf>,
     output_buf: &Arc<Mutex<LogBuffer>>,
     prefix: &Option<String>,
+    is_tui: bool,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let mut command = Command::new("sh");
     command.arg("-c").arg(cmd_str);
@@ -27,6 +28,11 @@ pub async fn run_shell_command(
     }
     command.stdout(Stdio::piped());
     command.stderr(Stdio::piped());
+    if is_tui {
+        command.stdin(Stdio::piped());
+    } else {
+        command.stdin(Stdio::inherit());
+    }
 
     #[cfg(unix)]
     {
@@ -36,11 +42,18 @@ pub async fn run_shell_command(
     let mut child = command.spawn()?;
     let pid = child.id();
 
-    // Set child_pid in states
-    if let Some(pid) = pid {
+    let (stdin_tx, mut stdin_rx) = tokio::sync::mpsc::unbounded_channel::<Vec<u8>>();
+
+    // Set child_pid and stdin_tx in states
+    {
         let mut guard = states.lock().unwrap();
         if let Some(state) = guard.get_mut(task_name) {
-            state.child_pid = Some(pid);
+            if let Some(pid) = pid {
+                state.child_pid = Some(pid);
+            }
+            if is_tui {
+                state.stdin_tx = Some(stdin_tx);
+            }
         }
     }
 
@@ -54,6 +67,7 @@ pub async fn run_shell_command(
             let mut guard = self.states.lock().unwrap();
             if let Some(state) = guard.get_mut(&self.task_name) {
                 state.child_pid = None;
+                state.stdin_tx = None;
             }
         }
     }
@@ -65,6 +79,21 @@ pub async fn run_shell_command(
 
     let stdout = child.stdout.take().ok_or("Failed to open stdout")?;
     let stderr = child.stderr.take().ok_or("Failed to open stderr")?;
+    let child_stdin = child.stdin.take();
+
+    let stdin_handle = if let Some(mut child_in) = child_stdin {
+        tokio::spawn(async move {
+            use tokio::io::AsyncWriteExt;
+            while let Some(bytes) = stdin_rx.recv().await {
+                if child_in.write_all(&bytes).await.is_err() {
+                    break;
+                }
+                let _ = child_in.flush().await;
+            }
+        })
+    } else {
+        tokio::spawn(async {})
+    };
 
     let output_buf_stdout = Arc::clone(output_buf);
     let prefix_stdout = prefix.clone();
@@ -117,6 +146,7 @@ pub async fn run_shell_command(
     });
 
     let _ = tokio::join!(stdout_handle, stderr_handle);
+    stdin_handle.abort();
 
     let status = child.wait().await?;
     if status.success() {
@@ -132,6 +162,7 @@ pub async fn execute_command_capturing(
     task: &Task,
     output_buf: &Arc<Mutex<LogBuffer>>,
     prefix: &Option<String>,
+    is_tui: bool,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let run_cmd = if let Some(ref r) = task.run {
         Some((r, false))
@@ -162,6 +193,7 @@ pub async fn execute_command_capturing(
                 &task.working_dir,
                 output_buf,
                 prefix,
+                is_tui,
             )
             .await
         }
@@ -185,6 +217,7 @@ pub async fn execute_command_capturing(
                     &task.working_dir,
                     output_buf,
                     prefix,
+                    is_tui,
                 )
                 .await?;
             }

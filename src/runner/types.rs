@@ -16,6 +16,7 @@ pub struct TaskState {
     pub output: Arc<Mutex<LogBuffer>>,
     pub child_pid: Option<u32>,
     pub stopped_as_success: bool,
+    pub stdin_tx: Option<tokio::sync::mpsc::UnboundedSender<Vec<u8>>>,
 }
 
 #[derive(Debug, PartialEq, Eq)]

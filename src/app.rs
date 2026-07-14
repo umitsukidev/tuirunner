@@ -19,6 +19,7 @@ pub struct App {
     visible_tasks: Vec<String>,
     cached_statuses: HashMap<String, TaskStatus>,
     cached_logs: HashMap<String, LogBuffer>,
+    is_interactive: bool,
 }
 
 impl App {
@@ -71,6 +72,7 @@ impl App {
             visible_tasks,
             cached_statuses,
             cached_logs,
+            is_interactive: false,
         }
     }
 
@@ -120,13 +122,15 @@ impl App {
 
         let size = frame.area();
 
+        let help_height = HelpBar::estimate_height(self.is_interactive, size.width);
+
         // Split vertically (Body & Flow Graph & Help Bar)
         let main_layout = Layout::default()
             .direction(Direction::Vertical)
             .constraints(vec![
                 Constraint::Min(0),
                 Constraint::Length(5), // Height 5 for execution flow graph (inc borders)
-                Constraint::Length(1), // Help bar
+                Constraint::Length(help_height), // Help bar
             ])
             .split(size);
 
@@ -190,6 +194,7 @@ impl App {
             task_description: selected_task_desc,
             logs: logs_slice,
             scroll_offset: self.log_scroll_offset,
+            is_interactive: self.is_interactive,
         };
         frame.render_widget(log_viewer, log_area);
 
@@ -198,7 +203,12 @@ impl App {
         frame.render_widget(flow_graph, graph_area);
 
         // --- Help Bar ---
-        frame.render_widget(HelpBar, help_area);
+        frame.render_widget(
+            HelpBar {
+                is_interactive: self.is_interactive,
+            },
+            help_area,
+        );
     }
 
     fn handle_events(&mut self) -> io::Result<()> {
@@ -213,10 +223,75 @@ impl App {
     }
 
     fn handle_key_event(&mut self, key_event: KeyEvent) {
+        if self.is_interactive {
+            if key_event.code == KeyCode::Esc {
+                self.is_interactive = false;
+                return;
+            }
+
+            if let Some(selected_name) = self.selected_task_name() {
+                let tx = {
+                    let states = self.runner.states.lock().unwrap();
+                    states.get(&selected_name).and_then(|s| s.stdin_tx.clone())
+                };
+                if let Some(tx) = tx {
+                    let bytes = match key_event.code {
+                        KeyCode::Char(c) => {
+                            if key_event.modifiers.contains(event::KeyModifiers::CONTROL) {
+                                match c {
+                                    'c' => vec![3],  // Ctrl+C (ETX)
+                                    'd' => vec![4],  // Ctrl+D (EOT)
+                                    'z' => vec![26], // Ctrl+Z (SUB)
+                                    _ => {
+                                        let c_upper = c.to_ascii_uppercase();
+                                        if c_upper >= 'A' && c_upper <= 'Z' {
+                                            vec![(c_upper as u8) - b'A' + 1]
+                                        } else {
+                                            c.to_string().into_bytes()
+                                        }
+                                    }
+                                }
+                            } else {
+                                c.to_string().into_bytes()
+                            }
+                        }
+                        KeyCode::Enter => vec![b'\n'],
+                        KeyCode::Tab => vec![b'\t'],
+                        KeyCode::Backspace => vec![8], // BS
+                        KeyCode::Delete => vec![127],  // DEL
+                        KeyCode::Up => vec![27, 91, 65],
+                        KeyCode::Down => vec![27, 91, 66],
+                        KeyCode::Right => vec![27, 91, 67],
+                        KeyCode::Left => vec![27, 91, 68],
+                        _ => vec![],
+                    };
+                    if !bytes.is_empty() {
+                        let _ = tx.send(bytes);
+                    }
+                }
+            }
+            return;
+        }
+
         // 1. Global keyboard shortcuts
         match key_event.code {
             KeyCode::Char('q') | KeyCode::Esc => {
                 self.exit = true;
+                return;
+            }
+            KeyCode::Char('i') => {
+                if let Some(selected_name) = self.selected_task_name() {
+                    let has_stdin = {
+                        let states = self.runner.states.lock().unwrap();
+                        states
+                            .get(&selected_name)
+                            .map(|s| s.status == TaskStatus::Running && s.stdin_tx.is_some())
+                            .unwrap_or(false)
+                    };
+                    if has_stdin {
+                        self.is_interactive = true;
+                    }
+                }
                 return;
             }
             KeyCode::Char('A') => {
