@@ -46,10 +46,10 @@ pub async fn run_shell_command(
         let mut reader = BufReader::new(stderr).lines();
         while let Ok(Some(line)) = reader.next_line().await {
             if let Some(ref pref) = prefix_stderr {
-                eprintln!("{} [stderr] {}", pref, line);
+                eprintln!("{} {}", pref, line);
             }
             let mut buf = output_buf_stderr.lock().unwrap();
-            buf.push(format!("[stderr] {}", line));
+            buf.push(line);
         }
     });
 

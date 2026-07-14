@@ -64,29 +64,31 @@ impl LogViewer<'_> {
     }
 }
 
-impl Widget for LogViewer<'_> {
+impl<'a> Widget for LogViewer<'a> {
     fn render(self, area: Rect, buf: &mut Buffer) {
         if let Some(name) = self.task_name {
             // Stylize log output
-            let text: Vec<Line> = self
-                .logs
-                .iter()
-                .map(|line| {
-                    if line.starts_with("=== ") {
-                        Line::from(line.clone().cyan().bold())
-                    } else if line.starts_with("$ ") {
-                        Line::from(line.clone().yellow())
-                    } else if line.starts_with("[stderr] ") {
-                        Line::from(line.clone().red())
-                    } else if line.contains("failed") || line.contains("Failed") {
-                        Line::from(line.clone().red().bold())
-                    } else if line.contains("succeeded") || line.contains("Success") {
-                        Line::from(line.clone().green().bold())
+            let mut text: Vec<Line<'a>> = Vec::new();
+            for line in self.logs {
+                if line.starts_with("=== ") {
+                    text.push(Line::from(line.clone().cyan().bold()));
+                } else if line.starts_with("$ ") {
+                    text.push(Line::from(line.clone().yellow()));
+                } else if line.contains('\x1b') {
+                    use ansi_to_tui::IntoText;
+                    if let Ok(ansi_text) = line.as_bytes().into_text() {
+                        text.extend(ansi_text.lines);
                     } else {
-                        Line::from(line.clone())
+                        text.push(Line::from(line.clone()));
                     }
-                })
-                .collect();
+                } else if line.contains("failed") || line.contains("Failed") {
+                    text.push(Line::from(line.clone().red().bold()));
+                } else if line.contains("succeeded") || line.contains("Success") {
+                    text.push(Line::from(line.clone().green().bold()));
+                } else {
+                    text.push(Line::from(line.clone()));
+                }
+            }
 
             let log_title = format!(" Output: {} ", name);
             let log_block = Block::default()

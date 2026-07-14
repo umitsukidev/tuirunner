@@ -37,3 +37,5 @@ tokio = { version = "1.52.3", features = [
     "io-util",
     "time",
 ] }
+ansi-to-tui = "8.0.1"
+
