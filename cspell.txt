@@ -12,6 +12,7 @@ schemars
 serde
 tuir
 tuirunner
+umitsuki
 umitsukidev
 vite
 vitepress

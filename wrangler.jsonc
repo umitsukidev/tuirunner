@@ -1,0 +1,13 @@
+{
+    "$schema": "node_modules/wrangler/config-schema.json",
+    "name": "tuirunner",
+    "compatibility_date": "2026-07-14",
+    "assets": {
+        "directory": "docs/.vitepress/dist",
+        "html_handling": "auto-trailing-slash",
+        "not_found_handling": "404-page",
+    },
+    "route": { "custom_domain": true, "pattern": "tuir.umitsuki.dev" },
+    "preview_urls": false,
+    "workers_dev": false,
+}
