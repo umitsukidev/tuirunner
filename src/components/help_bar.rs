@@ -11,22 +11,8 @@ pub struct HelpBar {
 }
 
 impl HelpBar {
-    pub fn estimate_height(is_interactive: bool, width: u16) -> u16 {
-        let help_text_len = if is_interactive {
-            30 // Length of interactive mode help
-        } else {
-            146 // Length of standard mode help text
-        };
-        let term_width = width.max(1) as usize;
-        // Add a buffer for word wrap boundaries
-        let estimated_len = help_text_len;
-        ((estimated_len + term_width - 1) / term_width).max(1) as u16
-    }
-}
-
-impl Widget for HelpBar {
-    fn render(self, area: Rect, buf: &mut Buffer) {
-        let help_text = if self.is_interactive {
+    fn build_line(is_interactive: bool) -> Line<'static> {
+        if is_interactive {
             Line::from(vec![
                 " Interactive Mode ".bold().yellow(),
                 " │ Exit: ".into(),
@@ -58,9 +44,83 @@ impl Widget for HelpBar {
                 "Quit: ".into(),
                 "q/Esc".bold().red(),
             ])
-        };
+        }
+    }
+
+    pub fn estimate_height(is_interactive: bool, width: u16) -> u16 {
+        let line = Self::build_line(is_interactive);
+        let plain_text: String = line.spans.iter().map(|s| s.content.as_ref()).collect();
+        let limit = width.max(1) as usize;
+
+        let mut lines = 0;
+        let mut current_line_len = 0;
+
+        let words: Vec<&str> = plain_text.split(' ').collect();
+        let mut i = 0;
+        while i < words.len() {
+            let word = words[i];
+            let word_len = word.chars().count();
+
+            if word_len == 0 {
+                if current_line_len > 0 && current_line_len < limit {
+                    current_line_len += 1;
+                }
+                i += 1;
+                continue;
+            }
+
+            if current_line_len == 0 {
+                if word_len > limit {
+                    lines += (word_len + limit - 1) / limit;
+                    current_line_len = word_len % limit;
+                } else {
+                    current_line_len = word_len;
+                }
+            } else {
+                if current_line_len + 1 + word_len <= limit {
+                    current_line_len += 1 + word_len;
+                } else {
+                    lines += 1;
+                    current_line_len = 0;
+                    continue;
+                }
+            }
+            i += 1;
+        }
+
+        if current_line_len > 0 {
+            lines += 1;
+        }
+
+        lines.max(1) as u16
+    }
+}
+
+impl Widget for HelpBar {
+    fn render(self, area: Rect, buf: &mut Buffer) {
+        let help_text = Self::build_line(self.is_interactive);
         Paragraph::new(help_text)
             .wrap(Wrap { trim: true })
             .render(area, buf);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_estimate_height_interactive() {
+        assert_eq!(HelpBar::estimate_height(true, 80), 1);
+        assert_eq!(HelpBar::estimate_height(true, 30), 1);
+        assert_eq!(HelpBar::estimate_height(true, 15), 3);
+    }
+
+    #[test]
+    fn test_estimate_height_standard() {
+        assert_eq!(HelpBar::estimate_height(false, 160), 1);
+        assert_eq!(HelpBar::estimate_height(false, 80), 2);
+        assert_eq!(HelpBar::estimate_height(false, 50), 4);
+        assert!(HelpBar::estimate_height(false, 20) >= 8);
     }
 }

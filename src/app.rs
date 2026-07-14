@@ -19,6 +19,8 @@ pub struct App {
     visible_tasks: Vec<String>,
     cached_statuses: HashMap<String, TaskStatus>,
     cached_logs: HashMap<String, LogBuffer>,
+    cached_stdin_avail: HashMap<String, bool>,
+    cached_stdin_txs: HashMap<String, tokio::sync::mpsc::UnboundedSender<Vec<u8>>>,
     is_interactive: bool,
 }
 
@@ -48,10 +50,16 @@ impl App {
         }
 
         let mut cached_statuses = HashMap::new();
+        let mut cached_stdin_avail = HashMap::new();
+        let mut cached_stdin_txs = HashMap::new();
         {
             let states_guard = runner.states.lock().unwrap();
             for (name, state) in states_guard.iter() {
                 cached_statuses.insert(name.clone(), state.status);
+                cached_stdin_avail.insert(name.clone(), state.stdin_tx.is_some());
+                if let Some(ref tx) = state.stdin_tx {
+                    cached_stdin_txs.insert(name.clone(), tx.clone());
+                }
             }
         }
 
@@ -72,6 +80,8 @@ impl App {
             visible_tasks,
             cached_statuses,
             cached_logs,
+            cached_stdin_avail,
+            cached_stdin_txs,
             is_interactive: false,
         }
     }
@@ -103,6 +113,13 @@ impl App {
         if let Ok(states_guard) = self.runner.states.try_lock() {
             for (name, state) in states_guard.iter() {
                 self.cached_statuses.insert(name.clone(), state.status);
+                self.cached_stdin_avail
+                    .insert(name.clone(), state.stdin_tx.is_some());
+                if let Some(ref tx) = state.stdin_tx {
+                    self.cached_stdin_txs.insert(name.clone(), tx.clone());
+                } else {
+                    self.cached_stdin_txs.remove(name);
+                }
             }
             if let Some(ref selected) = selected_name {
                 if let Some(state) = states_guard.get(selected) {
@@ -226,6 +243,11 @@ impl App {
         if self.is_interactive {
             let has_stdin = if let Some(selected_name) = self.selected_task_name() {
                 self.cached_statuses.get(&selected_name) == Some(&TaskStatus::Running)
+                    && self
+                        .cached_stdin_avail
+                        .get(&selected_name)
+                        .copied()
+                        .unwrap_or(false)
             } else {
                 false
             };
@@ -236,11 +258,7 @@ impl App {
                 self.is_interactive = false;
                 return;
             } else if let Some(selected_name) = self.selected_task_name() {
-                let tx = if let Ok(states) = self.runner.states.try_lock() {
-                    states.get(&selected_name).and_then(|s| s.stdin_tx.clone())
-                } else {
-                    None
-                };
+                let tx = self.cached_stdin_txs.get(&selected_name).cloned();
                 if let Some(tx) = tx {
                     let bytes = match key_event.code {
                         KeyCode::Char(c) => {
@@ -275,8 +293,10 @@ impl App {
                     if !bytes.is_empty() {
                         let _ = tx.send(bytes);
                     }
+                    return;
+                } else {
+                    self.is_interactive = false;
                 }
-                return;
             }
         }
 
@@ -288,14 +308,13 @@ impl App {
             }
             KeyCode::Char('i') => {
                 if let Some(selected_name) = self.selected_task_name() {
-                    let has_stdin = if let Ok(states) = self.runner.states.try_lock() {
-                        states
+                    let has_stdin = self.cached_statuses.get(&selected_name)
+                        == Some(&TaskStatus::Running)
+                        && self
+                            .cached_stdin_avail
                             .get(&selected_name)
-                            .map(|s| s.status == TaskStatus::Running && s.stdin_tx.is_some())
-                            .unwrap_or(false)
-                    } else {
-                        self.cached_statuses.get(&selected_name) == Some(&TaskStatus::Running)
-                    };
+                            .copied()
+                            .unwrap_or(false);
                     if has_stdin {
                         self.is_interactive = true;
                     }
