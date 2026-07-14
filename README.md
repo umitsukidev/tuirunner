@@ -52,7 +52,7 @@ tuir -c custom-config.json run
 #### Commands
 
 - `run`: Run tasks.
-  - `[TARGETS]...`: Specific task name(s) to execute. If omitted, all tasks will be run.
+    - `[TARGETS]...`: Specific task name(s) to execute. If omitted, all tasks will be run.
 - `schema`: Output the JSON schema of the configuration file and exit immediately. Useful for editor integration.
 - `completions <shell>`: Generate shell completion script to stdout.
 
@@ -98,10 +98,10 @@ working_dir = "./deploy_script"
 
 - **`tui`** (boolean, default: `true`): Enable/disable the TUI mode by default.
 - **`tasks`** (map): A map of tasks where the key is the task name.
-  - **`run`** (string or list of strings): Command(s) to execute silently. The command strings are executed under `sh -c`. (Mutually exclusive with `cmd`).
-  - **`cmd`** (string or list of strings): Command(s) to execute. Similar to `run`, but prints command invocation to stdout/stderr. (Mutually exclusive with `run`).
-  - **`working_dir`** (string, optional): Directory where the command will be run.
-  - **`depends_on`** (list of strings, optional): Tasks that must finish successfully before this task can start.
+    - **`run`** (string or list of strings): Command(s) to execute silently. The command strings are executed under `sh -c`. (Mutually exclusive with `cmd`).
+    - **`cmd`** (string or list of strings): Command(s) to execute. Similar to `run`, but prints command invocation to stdout/stderr. (Mutually exclusive with `run`).
+    - **`working_dir`** (string, optional): Directory where the command will be run.
+    - **`depends_on`** (list of strings, optional): Tasks that must finish successfully before this task can start.
 
 ### Interactive TUI Keybindings
 

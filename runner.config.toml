@@ -2,30 +2,35 @@
 
 tui = true
 
-[tasks.clean]
-description = "Clean build artifacts and temporary files"
-run = "echo 'Cleaning build artifacts...'; sleep 1; echo 'Clean complete!'"
+[tasks."clean:npm"]
+run = "pnpm clean"
 
-[tasks.codegen]
-description = "Generate source code from templates"
-run = "echo 'Generating source code from templates...'; sleep 2; echo 'Codegen complete!'"
+[tasks."clean:cargo"]
+run = "cargo clean"
+
+[tasks.clean]
+depends_on = ["clean:npm", "clean:cargo"]
+description = "Clean build artifacts and temporary files"
+
+[tasks."build:docs"]
+run = "pnpm docs:build"
+depends_on = ["codegen:schema"]
+
+[tasks."build:bin"]
+run = "cargo build"
 
 [tasks.build]
-description = "Compile source files and build the binary"
-run = "echo 'Compiling source files...'; sleep 3; echo 'Compilation successful!'"
-depends_on = ["clean", "codegen"]
+depends_on = ["build:docs", "build:bin"]
+description = "Build the application"
 
-[tasks.test]
-run = "echo 'Running unit tests...'; sleep 1.5; echo 'All 15 tests passed!'"
+[tasks."run:tuirunner"]
+run = "cargo run"
 depends_on = ["build"]
 
-[tasks.deploy]
-description = "Deploy the application to the staging environment"
-cmd = [
-    "echo 'Preparing deployment bundle...'",
-    "sleep 1",
-    "echo 'Uploading assets to CDN...'",
-    "sleep 1",
-    "echo 'Deployment to staging complete!'",
+[tasks."codegen:schema"]
+description = "Generate JSON Schema for runner.config.toml"
+run = [
+    "cargo run -- --schema > runner.schema.json",
+    "mkdir -p docs/public",
+    "cp runner.schema.json docs/public/runner.schema.json",
 ]
-depends_on = ["build"]

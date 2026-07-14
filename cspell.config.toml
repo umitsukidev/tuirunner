@@ -1,7 +1,7 @@
 #:schema https://raw.githubusercontent.com/streetsidesoftware/cspell/main/cspell.schema.json
 
 language = "en"
-ignorePaths = ["Cargo.lock", "target"]
+ignorePaths = ["Cargo.lock", "target", "node_modules", "pnpm-lock.yaml"]
 dictionaries = ["task-runner"]
 
 [[dictionaryDefinitions]]
