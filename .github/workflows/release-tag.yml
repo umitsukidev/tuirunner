@@ -42,3 +42,12 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git tag "$VERSION"
           git push origin "$VERSION"
+
+      - name: Save version to file
+        run: echo "${{ steps.extract_version.outputs.version }}" > version.txt
+
+      - name: Upload version artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-version
+          path: version.txt
