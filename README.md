@@ -29,7 +29,7 @@ This will compile and install the `tuir` binary into your Cargo bin directory (e
 
 ### Usage
 
-By default, `tuir` looks for [runner.config.toml](./runner.config.toml) in the current directory. Running `tuir` without any subcommand will display the help message. Use the `run` subcommand to execute tasks.
+By default, `tuir` looks for [runner.config.toml](./runner.config.toml) in the current directory. Running `tuir` without any subcommand will display the help message. Use the `run` subcommand to execute tasks, or run a single task directly.
 
 ```bash
 # Show help message
@@ -41,16 +41,26 @@ tuir run
 # Run specific tasks and their dependency subgraphs
 tuir run build test
 
+# Run a single specific task directly (short for `tuir run <task-name>`)
+# Note: Multiple tasks are not supported in this direct mode.
+tuir build
+
 # Run without TUI mode (CLI mode)
 tuir --no-tui run
 
 # Use a custom config file (JSON, YAML, or TOML)
 tuir --config custom-config.yaml run
 tuir -c custom-config.json run
+
+# Initialize a new configuration file
+tuir init
 ```
 
 #### Commands
 
+- `init`: Initialize a new configuration file in the current directory (default format: TOML).
+    - `--format <toml|yaml|json>`: Specify the configuration format.
+    - `--toml`, `--yaml`, `--json`: Flags to choose the configuration format.
 - `run`: Run tasks.
     - `[TARGETS]...`: Specific task name(s) to execute. If omitted, all tasks will be run.
 - `schema`: Output the JSON schema of the configuration file and exit immediately. Useful for editor integration.

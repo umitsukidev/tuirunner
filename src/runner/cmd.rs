@@ -30,26 +30,50 @@ pub async fn run_shell_command(
     let output_buf_stdout = Arc::clone(output_buf);
     let prefix_stdout = prefix.clone();
     let stdout_handle = tokio::spawn(async move {
-        let mut reader = BufReader::new(stdout).lines();
-        while let Ok(Some(line)) = reader.next_line().await {
+        let mut reader = BufReader::new(stdout);
+        let mut buf = Vec::new();
+        while let Ok(n) = reader.read_until(b'\n', &mut buf).await {
+            if n == 0 {
+                break;
+            }
+            let mut line = String::from_utf8_lossy(&buf).into_owned();
+            if line.ends_with('\n') {
+                line.pop();
+            }
+            if line.ends_with('\r') {
+                line.pop();
+            }
             if let Some(ref pref) = prefix_stdout {
                 println!("{} {}", pref, line);
             }
-            let mut buf = output_buf_stdout.lock().unwrap();
-            buf.push(line);
+            let mut output = output_buf_stdout.lock().unwrap();
+            output.push(line);
+            buf.clear();
         }
     });
 
     let output_buf_stderr = Arc::clone(output_buf);
     let prefix_stderr = prefix.clone();
     let stderr_handle = tokio::spawn(async move {
-        let mut reader = BufReader::new(stderr).lines();
-        while let Ok(Some(line)) = reader.next_line().await {
+        let mut reader = BufReader::new(stderr);
+        let mut buf = Vec::new();
+        while let Ok(n) = reader.read_until(b'\n', &mut buf).await {
+            if n == 0 {
+                break;
+            }
+            let mut line = String::from_utf8_lossy(&buf).into_owned();
+            if line.ends_with('\n') {
+                line.pop();
+            }
+            if line.ends_with('\r') {
+                line.pop();
+            }
             if let Some(ref pref) = prefix_stderr {
                 eprintln!("{} {}", pref, line);
             }
-            let mut buf = output_buf_stderr.lock().unwrap();
-            buf.push(line);
+            let mut output = output_buf_stderr.lock().unwrap();
+            output.push(line);
+            buf.clear();
         }
     });
 
@@ -80,9 +104,14 @@ pub async fn execute_command_capturing(
         None => Ok(()),
         Some((RunCommand::Single(cmd_str), show_command)) => {
             if show_command {
+                use crossterm::style::Stylize;
+                let styled_cmd = format!("$ {}", cmd_str).dim();
                 if let Some(pref) = prefix {
-                    use crossterm::style::Stylize;
-                    println!("{} {}", pref, format!("$ {}", cmd_str).dim());
+                    println!("{} {}", pref, styled_cmd);
+                }
+                {
+                    let mut buf = output_buf.lock().unwrap();
+                    buf.push(styled_cmd.to_string());
                 }
             }
             run_shell_command(cmd_str, &task.working_dir, output_buf, prefix).await
@@ -90,14 +119,15 @@ pub async fn execute_command_capturing(
         Some((RunCommand::Multiple(cmds), show_command)) => {
             for cmd_str in cmds {
                 if show_command {
+                    use crossterm::style::Stylize;
+                    let styled_cmd = format!("$ {}", cmd_str).dim();
                     if let Some(pref) = prefix {
-                        use crossterm::style::Stylize;
-                        println!("{} {}", pref, format!("$ {}", cmd_str).dim());
+                        println!("{} {}", pref, styled_cmd);
                     }
-                }
-                {
-                    let mut buf = output_buf.lock().unwrap();
-                    buf.push(format!("$ {}", cmd_str));
+                    {
+                        let mut buf = output_buf.lock().unwrap();
+                        buf.push(styled_cmd.to_string());
+                    }
                 }
                 run_shell_command(cmd_str, &task.working_dir, output_buf, prefix).await?;
             }

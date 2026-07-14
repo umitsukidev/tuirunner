@@ -67,29 +67,6 @@ impl LogViewer<'_> {
 impl<'a> Widget for LogViewer<'a> {
     fn render(self, area: Rect, buf: &mut Buffer) {
         if let Some(name) = self.task_name {
-            // Stylize log output
-            let mut text: Vec<Line<'a>> = Vec::new();
-            for line in self.logs {
-                if line.starts_with("=== ") {
-                    text.push(Line::from(line.clone().cyan().bold()));
-                } else if line.starts_with("$ ") {
-                    text.push(Line::from(line.clone().yellow()));
-                } else if line.contains('\x1b') {
-                    use ansi_to_tui::IntoText;
-                    if let Ok(ansi_text) = line.as_bytes().into_text() {
-                        text.extend(ansi_text.lines);
-                    } else {
-                        text.push(Line::from(line.clone()));
-                    }
-                } else if line.contains("failed") || line.contains("Failed") {
-                    text.push(Line::from(line.clone().red().bold()));
-                } else if line.contains("succeeded") || line.contains("Success") {
-                    text.push(Line::from(line.clone().green().bold()));
-                } else {
-                    text.push(Line::from(line.clone()));
-                }
-            }
-
             let log_title = format!(" Output: {} ", name);
             let log_block = Block::default()
                 .title(log_title)
@@ -123,9 +100,39 @@ impl<'a> Widget for LogViewer<'a> {
                 inner_area
             };
 
-            Paragraph::new(text)
-                .scroll((self.scroll_offset, 0))
-                .render(logs_area, buf);
+            // Calculate visible logs based on scroll offset and logs area height
+            let start = self.scroll_offset as usize;
+            let end = (start + logs_area.height as usize).min(self.logs.len());
+            let visible_logs = if start < self.logs.len() {
+                &self.logs[start..end]
+            } else {
+                &[]
+            };
+
+            // Stylize log output for the visible range only
+            let mut text: Vec<Line<'a>> = Vec::new();
+            for line in visible_logs {
+                if line.starts_with("=== ") {
+                    text.push(Line::from(line.clone().cyan().bold()));
+                } else if line.starts_with("$ ") {
+                    text.push(Line::from(line.clone().dim()));
+                } else if line.contains('\x1b') {
+                    use ansi_to_tui::IntoText;
+                    if let Ok(ansi_text) = line.as_bytes().into_text() {
+                        text.extend(ansi_text.lines);
+                    } else {
+                        text.push(Line::from(line.clone()));
+                    }
+                } else if line.contains("failed") || line.contains("Failed") {
+                    text.push(Line::from(line.clone().red().bold()));
+                } else if line.contains("succeeded") || line.contains("Success") {
+                    text.push(Line::from(line.clone().green().bold()));
+                } else {
+                    text.push(Line::from(line.clone()));
+                }
+            }
+
+            Paragraph::new(text).render(logs_area, buf);
         } else {
             let empty_block = Block::default()
                 .title(" Output ")

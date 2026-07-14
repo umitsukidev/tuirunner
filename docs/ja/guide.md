@@ -30,16 +30,26 @@ tuir run
 # 特定のタスクとその依存タスクを実行
 tuir run build test
 
+# 特定のタスクを直接実行（`tuir run <task-name>` のショートカット）
+# ※この直接実行モードでは、複数のタスクを同時に指定することはできません。
+tuir build
+
 # TUIモードを使用せずに実行（CLIモード）
 tuir --no-tui run
 
 # カスタム設定ファイルのパスを指定して実行（JSON、YAML、またはTOML）
 tuir --config custom-config.yaml run
 tuir -c custom-config.json run
+
+# 新しい設定ファイルを初期化して生成
+tuir init
 ```
 
 ### CLIサブコマンド
 
+- **`init`**: 現在の作業ディレクトリに新しい設定ファイルを生成して初期化します（デフォルト形式: TOML）。
+    - `--format <format>`: 設定ファイルのフォーマットを指定（toml、yaml、json）。
+    - `--toml`, `--yaml`, `--json`: 生成する設定ファイルのフォーマットを指定するフラグ。
 - **`run`**: タスクを実行します。
     - `[TARGETS]...`: 実行する特定のタスク名。指定しない場合、設定ファイルに定義されているすべてのタスクが実行されます。
 - **`schema`**: 設定ファイルのJSONスキーマを出力して終了します。エディタの入力補完やバリデーションの連携に便利です。

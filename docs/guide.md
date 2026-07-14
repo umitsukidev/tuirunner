@@ -30,16 +30,26 @@ tuir run
 # Run specific tasks and their dependency subgraphs
 tuir run build test
 
+# Run a single specific task directly (short for `tuir run <task-name>`)
+# Note: Multiple tasks are not supported in this direct mode.
+tuir build
+
 # Run without TUI mode (CLI mode)
 tuir --no-tui run
 
 # Specify a custom configuration file path (JSON, YAML, or TOML)
 tuir --config custom-config.yaml run
 tuir -c custom-config.json run
+
+# Initialize a new configuration file
+tuir init
 ```
 
 ### CLI Subcommands
 
+- **`init`**: Initialize a new configuration file in the current working directory (default: TOML format).
+    - `--format <format>`: Format of the configuration file (toml, yaml, json).
+    - `--toml`, `--yaml`, `--json`: Flags to choose the configuration format.
 - **`run`**: Execute tasks.
     - `[TARGETS]...`: Specific task name(s) to run. If none are specified, all tasks defined in the configuration are executed.
 - **`schema`**: Output the JSON schema of the configuration file and exit immediately. Useful for editor integration.
