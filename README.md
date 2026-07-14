@@ -117,16 +117,18 @@ working_dir = "./deploy_script"
 
 When running in TUI mode, use the following keybindings to interact with the application:
 
-| Key                       | Action                                       |
-| ------------------------- | -------------------------------------------- |
-| `↑` / `↓` / `j` / `k`     | Move selection in the Task List              |
-| `r` / `Enter`             | Run the selected task (and its dependencies) |
-| `A`                       | Run all tasks in the list                    |
-| `c`                       | Clear output logs of the selected task       |
-| `C` (Shift+C)             | Clear output logs of all tasks               |
-| `PgUp` / `PgDn`           | Scroll logs up/down by half a page           |
-| `Shift + ↑` / `Shift + ↓` | Scroll logs up/down line by line             |
-| `q` / `Esc`               | Quit the application                         |
+| Key                       | Action                                                            |
+| ------------------------- | ----------------------------------------------------------------- |
+| `↑` / `↓` / `j` / `k`     | Move selection in the Task List                                   |
+| `r` / `Enter`             | Run the selected task (and its dependencies)                      |
+| `A`                       | Run all tasks in the list                                         |
+| `s`                       | Stop execution of the selected task (skips downstream tasks)      |
+| `S` (Shift+S)             | Stop execution of the selected task and continue downstream tasks |
+| `c`                       | Clear output logs of the selected task                            |
+| `C` (Shift+C)             | Clear output logs of all tasks                                    |
+| `PgUp` / `PgDn`           | Scroll logs up/down by half a page                                |
+| `Shift + ↑` / `Shift + ↓` | Scroll logs up/down line by line                                  |
+| `q` / `Esc`               | Quit the application                                              |
 
 ---
 
@@ -173,6 +175,15 @@ In your config files, you can link the schema as follows:
 ```toml
 #:schema ./runner.schema.json
 ```
+
+---
+
+## Release Workflow
+
+This repository has an automated release tagging workflow. When a Pull Request is merged into the `main` branch, a Git tag will be automatically created and pushed if the PR title matches the format `release: <version>` (e.g., `release: v0.1.0-beta.1`).
+
+- **Format**: `release: <version> [optional comments]` (The tag will only include the extracted version, e.g. `v0.1.0-beta.1`).
+- **Trigger**: Merge to the `main` branch.
 
 ---
 

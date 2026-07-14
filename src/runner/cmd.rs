@@ -1,5 +1,9 @@
-use crate::config::{RunCommand, Task};
+use crate::{
+    config::{RunCommand, Task},
+    runner::{log_buffer::LogBuffer, types::TaskState},
+};
 use std::{
+    collections::HashMap,
     process::Stdio,
     sync::{Arc, Mutex},
 };
@@ -9,9 +13,11 @@ use tokio::{
 };
 
 pub async fn run_shell_command(
+    task_name: &str,
+    states: &Arc<Mutex<HashMap<String, TaskState>>>,
     cmd_str: &str,
     working_dir: &Option<std::path::PathBuf>,
-    output_buf: &Arc<Mutex<Vec<String>>>,
+    output_buf: &Arc<Mutex<LogBuffer>>,
     prefix: &Option<String>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let mut command = Command::new("sh");
@@ -22,7 +28,40 @@ pub async fn run_shell_command(
     command.stdout(Stdio::piped());
     command.stderr(Stdio::piped());
 
+    #[cfg(unix)]
+    {
+        command.process_group(0);
+    }
+
     let mut child = command.spawn()?;
+    let pid = child.id();
+
+    // Set child_pid in states
+    if let Some(pid) = pid {
+        let mut guard = states.lock().unwrap();
+        if let Some(state) = guard.get_mut(task_name) {
+            state.child_pid = Some(pid);
+        }
+    }
+
+    struct PidGuard {
+        task_name: String,
+        states: Arc<Mutex<HashMap<String, TaskState>>>,
+    }
+
+    impl Drop for PidGuard {
+        fn drop(&mut self) {
+            let mut guard = self.states.lock().unwrap();
+            if let Some(state) = guard.get_mut(&self.task_name) {
+                state.child_pid = None;
+            }
+        }
+    }
+
+    let _pid_guard = PidGuard {
+        task_name: task_name.to_string(),
+        states: Arc::clone(states),
+    };
 
     let stdout = child.stdout.take().ok_or("Failed to open stdout")?;
     let stderr = child.stderr.take().ok_or("Failed to open stderr")?;
@@ -88,8 +127,10 @@ pub async fn run_shell_command(
 }
 
 pub async fn execute_command_capturing(
+    task_name: &str,
+    states: &Arc<Mutex<HashMap<String, TaskState>>>,
     task: &Task,
-    output_buf: &Arc<Mutex<Vec<String>>>,
+    output_buf: &Arc<Mutex<LogBuffer>>,
     prefix: &Option<String>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let run_cmd = if let Some(ref r) = task.run {
@@ -114,7 +155,15 @@ pub async fn execute_command_capturing(
                     buf.push(styled_cmd.to_string());
                 }
             }
-            run_shell_command(cmd_str, &task.working_dir, output_buf, prefix).await
+            run_shell_command(
+                task_name,
+                states,
+                cmd_str,
+                &task.working_dir,
+                output_buf,
+                prefix,
+            )
+            .await
         }
         Some((RunCommand::Multiple(cmds), show_command)) => {
             for cmd_str in cmds {
@@ -129,7 +178,15 @@ pub async fn execute_command_capturing(
                         buf.push(styled_cmd.to_string());
                     }
                 }
-                run_shell_command(cmd_str, &task.working_dir, output_buf, prefix).await?;
+                run_shell_command(
+                    task_name,
+                    states,
+                    cmd_str,
+                    &task.working_dir,
+                    output_buf,
+                    prefix,
+                )
+                .await?;
             }
             Ok(())
         }

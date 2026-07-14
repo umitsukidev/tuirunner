@@ -132,13 +132,15 @@ Then reference it at the top of your configuration file:
 
 When running in TUI mode, you can use the following keybindings to interact with the application:
 
-| Key                       | Action                                       |
-| ------------------------- | -------------------------------------------- |
-| `↑` / `↓` / `j` / `k`     | Move selection in the Task List              |
-| `r` / `Enter`             | Run the selected task (and its dependencies) |
-| `A`                       | Run all tasks in the list                    |
-| `c`                       | Clear output logs of the selected task       |
-| `C` (Shift+C)             | Clear output logs of all tasks               |
-| `PgUp` / `PgDn`           | Scroll logs up/down by half a page           |
-| `Shift + ↑` / `Shift + ↓` | Scroll logs up/down line by line             |
-| `q` / `Esc`               | Quit the application                         |
+| Key                       | Action                                                            |
+| ------------------------- | ----------------------------------------------------------------- |
+| `↑` / `↓` / `j` / `k`     | Move selection in the Task List                                   |
+| `r` / `Enter`             | Run the selected task (and its dependencies)                      |
+| `A`                       | Run all tasks in the list                                         |
+| `s`                       | Stop execution of the selected task (skips downstream tasks)      |
+| `S` (Shift+S)             | Stop execution of the selected task and continue downstream tasks |
+| `c`                       | Clear output logs of the selected task                            |
+| `C` (Shift+C)             | Clear output logs of all tasks                                    |
+| `PgUp` / `PgDn`           | Scroll logs up/down by half a page                                |
+| `Shift + ↑` / `Shift + ↓` | Scroll logs up/down line by line                                  |
+| `q` / `Esc`               | Quit the application                                              |

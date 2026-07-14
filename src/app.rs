@@ -1,6 +1,6 @@
 use crate::{
     components::{FlowGraph, HelpBar, LogViewer, TaskList, task_list::TaskListEvent},
-    runner::{TaskRunner, TaskStatus},
+    runner::{TaskRunner, TaskStatus, log_buffer::LogBuffer},
     store::Store,
 };
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
@@ -18,7 +18,7 @@ pub struct App {
     auto_scroll: bool,
     visible_tasks: Vec<String>,
     cached_statuses: HashMap<String, TaskStatus>,
-    cached_logs: HashMap<String, Vec<String>>,
+    cached_logs: HashMap<String, LogBuffer>,
 }
 
 impl App {
@@ -47,12 +47,18 @@ impl App {
         }
 
         let mut cached_statuses = HashMap::new();
-        let mut cached_logs = HashMap::new();
         {
             let states_guard = runner.states.lock().unwrap();
             for (name, state) in states_guard.iter() {
                 cached_statuses.insert(name.clone(), state.status);
-                cached_logs.insert(name.clone(), state.output.lock().unwrap().clone());
+            }
+        }
+
+        let mut cached_logs = HashMap::new();
+        if let Some(first_task) = visible_tasks.get(selected_task_index) {
+            let states_guard = runner.states.lock().unwrap();
+            if let Some(state) = states_guard.get(first_task) {
+                cached_logs.insert(first_task.clone(), state.output.lock().unwrap().clone());
             }
         }
 
@@ -68,12 +74,20 @@ impl App {
         }
     }
 
-    pub fn run(&mut self, terminal: &mut DefaultTerminal) -> io::Result<()> {
+    pub async fn run(&mut self, terminal: &mut DefaultTerminal) -> io::Result<()> {
+        let mut result = Ok(());
         while !self.exit {
-            terminal.draw(|frame| self.draw(frame))?;
-            self.handle_events()?;
+            if let Err(e) = terminal.draw(|frame| self.draw(frame)) {
+                result = Err(e);
+                break;
+            }
+            if let Err(e) = self.handle_events() {
+                result = Err(e);
+                break;
+            }
         }
-        Ok(())
+        self.runner.shutdown().await;
+        result
     }
 
     fn selected_task_name(&self) -> Option<String> {
@@ -81,12 +95,25 @@ impl App {
     }
 
     fn draw(&mut self, frame: &mut Frame) {
+        let selected_name = self.selected_task_name();
+
         // try_lock to update cached statuses and logs
         if let Ok(states_guard) = self.runner.states.try_lock() {
             for (name, state) in states_guard.iter() {
                 self.cached_statuses.insert(name.clone(), state.status);
-                if let Ok(logs_guard) = state.output.try_lock() {
-                    self.cached_logs.insert(name.clone(), logs_guard.clone());
+            }
+            if let Some(ref selected) = selected_name {
+                if let Some(state) = states_guard.get(selected) {
+                    if let Ok(logs_guard) = state.output.try_lock() {
+                        let needs_update = match self.cached_logs.get(selected) {
+                            Some(cached) => cached.version != logs_guard.version,
+                            None => true,
+                        };
+                        if needs_update {
+                            self.cached_logs
+                                .insert(selected.clone(), (*logs_guard).clone());
+                        }
+                    }
                 }
             }
         }
@@ -131,11 +158,10 @@ impl App {
         frame.render_widget(task_list, sidebar_area);
 
         // --- Right Log Area: Selected Task Output ---
-        let selected_name = self.selected_task_name();
         let logs_slice = if let Some(ref name) = selected_name {
             self.cached_logs
                 .get(name)
-                .map(|v| v.as_slice())
+                .map(|v| v.lines.as_slice())
                 .unwrap_or(&[])
         } else {
             &[]
@@ -227,6 +253,12 @@ impl App {
                     self.runner.clear_logs(&name);
                     self.log_scroll_offset = 0;
                     self.auto_scroll = true;
+                }
+                TaskListEvent::Stop(name) => {
+                    self.runner.stop_task(&name, false);
+                }
+                TaskListEvent::StopAndNext(name) => {
+                    self.runner.stop_task(&name, true);
                 }
             }
             return;
