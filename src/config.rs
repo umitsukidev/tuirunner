@@ -44,6 +44,10 @@ pub enum RunCommand {
 /// Configuration details for an individual task
 #[derive(Debug, Clone, Deserialize, Validate, JsonSchema)]
 pub struct Task {
+    /// A brief description of what the task does
+    #[serde(default)]
+    #[garde(skip)]
+    pub description: Option<String>,
     /// The command(s) to run (hidden command execution)
     #[serde(default)]
     #[garde(skip)]
@@ -117,6 +121,7 @@ mod tests {
         tasks.insert(
             "invalid_task".to_string(),
             Task {
+                description: None,
                 run: Some(RunCommand::Single("echo run".to_string())),
                 cmd: Some(RunCommand::Single("echo cmd".to_string())),
                 working_dir: None,

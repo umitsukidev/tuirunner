@@ -1,7 +1,7 @@
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::{
     buffer::Buffer,
-    layout::Rect,
+    layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Style, Stylize},
     text::Line,
     widgets::{Block, Borders, Paragraph, Widget},
@@ -9,6 +9,7 @@ use ratatui::{
 
 pub struct LogViewer<'a> {
     pub task_name: Option<&'a str>,
+    pub task_description: Option<&'a str>,
     pub logs: &'a [String],
     pub scroll_offset: u16,
 }
@@ -19,8 +20,10 @@ impl LogViewer<'_> {
         current_offset: u16,
         logs_len: usize,
         area_height: u16,
+        has_description: bool,
     ) -> Option<(u16, bool)> {
-        let content_height = area_height.saturating_sub(2) as usize; // account for borders
+        let overhead = if has_description { 4 } else { 2 };
+        let content_height = area_height.saturating_sub(overhead) as usize; // account for borders
         let max_scroll = logs_len.saturating_sub(content_height) as u16;
 
         let mut offset = current_offset;
@@ -91,10 +94,36 @@ impl Widget for LogViewer<'_> {
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::Cyan));
 
+            let inner_area = log_block.inner(area);
+            log_block.render(area, buf);
+
+            let logs_area = if let Some(desc) = self.task_description {
+                let chunks = Layout::default()
+                    .direction(Direction::Vertical)
+                    .constraints(vec![
+                        Constraint::Length(1), // description line
+                        Constraint::Length(1), // separator line
+                        Constraint::Min(0),    // logs
+                    ])
+                    .split(inner_area);
+
+                // Render description
+                let desc_line = Line::from(vec!["Description: ".bold().cyan(), desc.into()]);
+                Paragraph::new(desc_line).render(chunks[0], buf);
+
+                // Render separator
+                let sep_char = "─";
+                let separator_text = sep_char.repeat(inner_area.width as usize);
+                Paragraph::new(separator_text.dark_gray()).render(chunks[1], buf);
+
+                chunks[2]
+            } else {
+                inner_area
+            };
+
             Paragraph::new(text)
-                .block(log_block)
                 .scroll((self.scroll_offset, 0))
-                .render(area, buf);
+                .render(logs_area, buf);
         } else {
             let empty_block = Block::default()
                 .title(" Output ")

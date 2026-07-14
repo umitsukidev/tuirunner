@@ -295,6 +295,7 @@ mod tests {
 
     fn make_task(depends_on: Option<Vec<&str>>) -> Task {
         Task {
+            description: None,
             run: Some(RunCommand::Single("echo test".to_string())),
             cmd: None,
             working_dir: None,
@@ -351,6 +352,7 @@ mod tests {
         tasks.insert(
             "A".to_string(),
             Task {
+                description: None,
                 run: Some(RunCommand::Single("sleep 1".to_string())),
                 cmd: None,
                 working_dir: None,

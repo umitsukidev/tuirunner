@@ -3,12 +3,15 @@
 tui = true
 
 [tasks.clean]
+description = "Clean build artifacts and temporary files"
 run = "echo 'Cleaning build artifacts...'; sleep 1; echo 'Clean complete!'"
 
 [tasks.codegen]
+description = "Generate source code from templates"
 run = "echo 'Generating source code from templates...'; sleep 2; echo 'Codegen complete!'"
 
 [tasks.build]
+description = "Compile source files and build the binary"
 run = "echo 'Compiling source files...'; sleep 3; echo 'Compilation successful!'"
 depends_on = ["clean", "codegen"]
 
@@ -17,6 +20,7 @@ run = "echo 'Running unit tests...'; sleep 1.5; echo 'All 15 tests passed!'"
 depends_on = ["build"]
 
 [tasks.deploy]
+description = "Deploy the application to the staging environment"
 cmd = [
     "echo 'Preparing deployment bundle...'",
     "sleep 1",

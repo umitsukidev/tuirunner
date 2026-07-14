@@ -142,8 +142,15 @@ impl App {
         };
         let logs_len = logs_slice.len();
 
+        let selected_task_desc = selected_name
+            .as_ref()
+            .and_then(|name| store.tasks.get(name))
+            .and_then(|task| task.description.as_deref());
+
         // Calculate auto scroll constraint
-        let content_height = log_area.height.saturating_sub(2) as usize;
+        let has_description = selected_task_desc.is_some();
+        let overhead = if has_description { 4 } else { 2 };
+        let content_height = log_area.height.saturating_sub(overhead) as usize;
         let max_scroll = logs_len.saturating_sub(content_height) as u16;
 
         if self.auto_scroll {
@@ -154,6 +161,7 @@ impl App {
 
         let log_viewer = LogViewer {
             task_name: selected_name.as_deref(),
+            task_description: selected_task_desc,
             logs: logs_slice,
             scroll_offset: self.log_scroll_offset,
         };
@@ -232,6 +240,13 @@ impl App {
                 .map(|v| v.len())
                 .unwrap_or(0);
 
+            let has_description = self
+                .runner
+                .tasks
+                .get(&selected_name)
+                .and_then(|task| task.description.as_ref())
+                .is_some();
+
             // Estimate log area height from window dimensions
             let (_, term_height) = crossterm::terminal::size().unwrap_or((80, 24));
             let area_height = term_height.saturating_sub(6); // body area height
@@ -241,6 +256,7 @@ impl App {
                 self.log_scroll_offset,
                 logs_len,
                 area_height,
+                has_description,
             ) {
                 self.log_scroll_offset = offset;
                 self.auto_scroll = auto;

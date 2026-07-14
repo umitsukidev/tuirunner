@@ -22,6 +22,14 @@
       "description": "Configuration details for an individual task",
       "type": "object",
       "properties": {
+        "description": {
+          "description": "A brief description of what the task does",
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "run": {
           "description": "The command(s) to run (hidden command execution)",
           "allOf": [
