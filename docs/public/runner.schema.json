@@ -1,6 +1,6 @@
 {
     "$schema": "http://json-schema.org/draft-07/schema#",
-    "title": "AppConfig",
+    "title": "TuirConfig",
     "description": "The basic application configuration",
     "type": "object",
     "properties": {

@@ -9,6 +9,7 @@ fn default_tui() -> bool {
 
 /// The basic application configuration
 #[derive(Debug, Clone, Deserialize, Validate, JsonSchema)]
+#[schemars(rename = "TuirConfig")]
 pub struct AppConfig {
     /// Whether to enable the TUI (Terminal User Interface) mode
     #[serde(default = "default_tui")]
