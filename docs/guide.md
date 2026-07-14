@@ -146,3 +146,30 @@ When running in TUI mode, you can use the following keybindings to interact with
 | `i`                       | Enter "Interactive Input Mode" for the selected running task      |
 | `Esc` (interactive mode)  | Exit Interactive Input Mode and return to standard TUI control    |
 | `q` / `Esc`               | Quit the application                                              |
+
+---
+
+## Known Limitations & Constraints
+
+### Platform Compatibility (Windows Native Support)
+
+Currently, `tuirunner` relies on Unix shell features (`sh -c`) and POSIX signal handling (`libc::kill` to negative process group IDs) for task execution and termination (such as stopping tasks via `s`/`S` or performing graceful shutdown).
+
+- **Windows Limitation**: Running `tuir` directly in a native Windows cmd/PowerShell environment is not fully supported and may lead to execution failures or orphaned background processes when stopping tasks.
+- **Recommendation**: On Windows, it is highly recommended to run `tuir` within a Unix-like environment, such as **WSL (Windows Subsystem for Linux)** or **Git Bash**.
+
+### Interactive Input Mode (No PTY)
+
+The "Interactive Input Mode" (triggered by pressing `i` in the TUI) works by piping key presses directly to the running task's standard input stream.
+
+- Since this does not allocate or wrap the execution inside a true pseudo-terminal (PTY) wrapper, fullscreen terminal applications (like `vim`, `nano`), interactive shell prompts, or tools requiring term size queries may fail, render incorrectly, or refuse to run interactively.
+
+---
+
+## Future Roadmap
+
+We plan to implement the following features in upcoming releases:
+
+1. **Native Windows Support**: Execute commands via `cmd.exe /C` or PowerShell, and implement Windows-native process tree termination.
+2. **Log File Archiving**: Add a configuration option and a CLI parameter (`--log-dir`) to persist task execution outputs to log files.
+3. **PTY Support Investigation**: Explore integrating a pseudo-terminal (PTY) library (such as `portable-pty`) to support full interactive terminal applications inside the TUI.

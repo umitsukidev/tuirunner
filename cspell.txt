@@ -1,6 +1,7 @@
 codegen
 Condvar
 crossterm
+dtolnay
 esbuild
 Frontmatter
 kurage
@@ -12,8 +13,10 @@ oxlint
 pgid
 pids
 ratatui
+rustup
 schemars
 serde
+softprops
 tuir
 tuirunner
 umitsuki

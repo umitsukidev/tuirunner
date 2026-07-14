@@ -180,6 +180,24 @@ In your config files, you can link the schema as follows:
 
 ---
 
+## Known Limitations & Constraints
+
+- **Platform Support**: Native Windows environments are not fully supported out of the box. Running commands and terminating task process groups relies on Unix shell (`sh -c`) and POSIX signaling (`libc::kill` to negative PIDs). On Windows, it is highly recommended to run `tuir` inside a Unix-like environment such as **WSL (Windows Subsystem for Linux)** or **Git Bash**.
+- **Interactive Input Mode**: The interactive mode (toggled by pressing `i` in the TUI) pipes keystrokes to the command's standard input stream. Because it is not a full pseudo-terminal (PTY) wrapper, fullscreen terminal applications (like `nano`, `vim`), advanced progress indicators, or tools prompting for input that rely on active terminal PTY queries may fail or not render properly.
+- **Log Persistence**: Current logs are stored entirely in memory (`LogBuffer`) inside the TUI session. If you close the terminal interface, the execution logs are lost.
+
+---
+
+## Roadmap
+
+We plan to implement the following features in future releases:
+
+- **Native Windows Support**: Native command execution using `cmd.exe /C` or PowerShell, and native Windows process tree termination.
+- **Log File Archiving**: A configuration/CLI parameter to automatically stream and persist task execution output to log files.
+- **PTY Support Investigation**: Explore wrapping execution in a full pseudo-terminal (PTY) backend (e.g. using `portable-pty` or custom bindings) to fully support complex interactive console applications inside the TUI.
+
+---
+
 ## Release Workflow
 
 This repository has an automated release tagging workflow. When a Pull Request is merged into the `main` branch, a Git tag will be automatically created and pushed if the PR title matches the format `release: <version>` (e.g., `release: v0.1.0-beta.1`).
