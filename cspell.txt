@@ -1,6 +1,7 @@
 codegen
 Condvar
 crossterm
+esbuild
 Frontmatter
 kurage
 MSRV
@@ -17,3 +18,4 @@ umitsukidev
 vite
 vitepress
 voidzero
+workerd

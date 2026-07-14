@@ -9,7 +9,7 @@ mod utils;
 
 use crate::{
     app::App,
-    cli::{Cli, Commands},
+    cli::{Cli, Commands, ConfigFormat},
     config::AppConfig,
     runner::TaskRunner,
 };
@@ -31,6 +31,81 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // サブコマンドの処理およびtargetsの抽出
     let targets = match cli.command {
+        Some(Commands::Init {
+            format,
+            toml,
+            yaml,
+            json,
+        }) => {
+            let final_format = if toml {
+                ConfigFormat::Toml
+            } else if yaml {
+                ConfigFormat::Yaml
+            } else if json {
+                ConfigFormat::Json
+            } else {
+                format.unwrap_or(ConfigFormat::Toml)
+            };
+
+            // Check if runner.config.{toml,yaml,yml,json} already exists.
+            let files = [
+                "runner.config.toml",
+                "runner.config.yaml",
+                "runner.config.yml",
+                "runner.config.json",
+            ];
+            for file in &files {
+                let path = std::path::Path::new(file);
+                if path.exists() {
+                    eprintln!("Error: {} already exists", file);
+                    std::process::exit(1);
+                }
+            }
+
+            // Create the configuration file based on format
+            let (filename, content) = match final_format {
+                ConfigFormat::Toml => (
+                    "runner.config.toml",
+                    r#"#:schema https://tuir.umitsuki.dev/runner.schema.json
+
+tui = true
+
+[tasks.hello]
+description = "Say hello"
+cmd = "echo 'Hello, World!'"
+"#,
+                ),
+                ConfigFormat::Yaml => (
+                    "runner.config.yaml",
+                    r#"# yaml-language-server: $schema=https://tuir.umitsuki.dev/runner.schema.json
+
+tui: true
+tasks:
+  hello:
+    description: "Say hello"
+    cmd: "echo 'Hello, World!'"
+"#,
+                ),
+                ConfigFormat::Json => (
+                    "runner.config.json",
+                    r#"{
+  "$schema": "https://tuir.umitsuki.dev/runner.schema.json",
+  "tui": true,
+  "tasks": {
+    "hello": {
+      "description": "Say hello",
+      "cmd": "echo 'Hello, World!'"
+    }
+  }
+}
+"#,
+                ),
+            };
+
+            std::fs::write(filename, content)?;
+            println!("Initialized {}", filename);
+            return Ok(());
+        }
         Some(Commands::Run { targets }) => targets,
         Some(Commands::Schema) => {
             let schema = schemars::schema_for!(AppConfig);
