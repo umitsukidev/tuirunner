@@ -7,7 +7,7 @@
 
 `tuir` is a concurrent task runner with a terminal user interface (TUI) and command-line interface (CLI) written in Rust, built on top of [ratatui](https://github.com/ratatui/ratatui). It allows users to define a dependency graph of tasks and execute them concurrently with real-time log capturing.
 
-Read the [English guide](https://tuir.umitsuki.dev/guide.html) or the [Japanese guide](https://tuir.umitsuki.dev/ja/guide.html).
+Read the [English guide](https://tuir.umitsuki.dev/guide.html) or the [日本語ガイド](https://tuir.umitsuki.dev/ja/guide.html).
 
 ## Features
 
