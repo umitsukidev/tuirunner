@@ -73,19 +73,19 @@ impl Widget for FlowGraph<'_> {
                 grid[0][c] = Some(col_nodes[c][0].clone());
                 grid[h - 1][c] = Some(col_nodes[c][1].clone());
             } else if k >= 3 {
-                for i in 0..k {
+                for (i, name) in col_nodes[c].iter().enumerate() {
                     let r = i * (h - 1) / (k - 1);
-                    grid[r][c] = Some(col_nodes[c][i].clone());
+                    grid[r][c] = Some(name.clone());
                 }
             }
         }
 
         let mut lines = Vec::new();
-        for r in 0..h {
+        for (r, row) in grid.iter().enumerate() {
             let mut spans = Vec::new();
             for c in 0..=max_level {
                 let width = col_widths[c];
-                if let Some(ref name) = grid[r][c] {
+                if let Some(ref name) = row[c] {
                     let status = statuses.get(name).copied().unwrap_or(TaskStatus::Idle);
                     let color = match status {
                         TaskStatus::Idle => Color::DarkGray,

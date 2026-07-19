@@ -38,11 +38,7 @@ impl LogViewer<'_> {
             KeyCode::Down | KeyCode::Char('j') if key.modifiers.contains(KeyModifiers::SHIFT) => {
                 offset = offset.saturating_add(1);
                 // Maintain auto scroll if scrolled near the bottom
-                if (offset as usize) >= logs_len.saturating_sub(15) {
-                    auto = true;
-                } else {
-                    auto = false;
-                }
+                auto = (offset as usize) >= logs_len.saturating_sub(15);
             }
             KeyCode::PageUp => {
                 offset = offset.saturating_sub(10);
@@ -55,9 +51,7 @@ impl LogViewer<'_> {
             _ => return None,
         }
 
-        if auto {
-            offset = max_scroll;
-        } else if offset > max_scroll {
+        if auto || offset > max_scroll {
             offset = max_scroll;
         }
 
@@ -153,5 +147,46 @@ impl<'a> Widget for LogViewer<'a> {
                 .dark_gray()
                 .render(area, buf);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn key(code: KeyCode, modifiers: KeyModifiers) -> KeyEvent {
+        KeyEvent::new(code, modifiers)
+    }
+
+    #[test]
+    fn test_page_navigation_clamps_to_log_bounds() {
+        let page_down = key(KeyCode::PageDown, KeyModifiers::NONE);
+
+        assert_eq!(
+            LogViewer::handle_key_event(page_down, 10, 20, 5, false),
+            Some((17, false))
+        );
+    }
+
+    #[test]
+    fn test_shift_down_restores_auto_scroll_near_the_bottom() {
+        let result =
+            LogViewer::handle_key_event(key(KeyCode::Down, KeyModifiers::SHIFT), 24, 40, 10, false);
+
+        assert_eq!(result, Some((32, true)));
+    }
+
+    #[test]
+    fn test_unhandled_key_does_not_change_scroll() {
+        assert_eq!(
+            LogViewer::handle_key_event(
+                key(KeyCode::Char('j'), KeyModifiers::NONE),
+                5,
+                20,
+                10,
+                false
+            ),
+            None
+        );
     }
 }

@@ -102,15 +102,16 @@ impl TaskRunner {
         {
             let mut states_guard = self.states.lock().unwrap();
             for name in &target_subgraph {
-                if let Some(state) = states_guard.get_mut(name) {
-                    if state.status != TaskStatus::Running && state.status != TaskStatus::Pending {
-                        state.status = TaskStatus::Pending;
-                        state.stopped_as_success = false;
-                        let mut out = state.output.lock().unwrap();
-                        out.clear();
-                        out.push(format!("=== Task queued: {} ===", name));
-                        filtered_subgraph.insert(name.clone());
-                    }
+                if let Some(state) = states_guard.get_mut(name)
+                    && state.status != TaskStatus::Running
+                    && state.status != TaskStatus::Pending
+                {
+                    state.status = TaskStatus::Pending;
+                    state.stopped_as_success = false;
+                    let mut out = state.output.lock().unwrap();
+                    out.clear();
+                    out.push(format!("=== Task queued: {} ===", name));
+                    filtered_subgraph.insert(name.clone());
                 }
             }
         }
@@ -354,13 +355,12 @@ impl TaskRunner {
 }
 
 fn get_subgraph(tasks: &HashMap<String, Task>, target: &str, subgraph: &mut HashSet<String>) {
-    if subgraph.insert(target.to_string()) {
-        if let Some(task) = tasks.get(target) {
-            if let Some(deps) = &task.depends_on {
-                for dep in deps {
-                    get_subgraph(tasks, dep, subgraph);
-                }
-            }
+    if subgraph.insert(target.to_string())
+        && let Some(task) = tasks.get(target)
+        && let Some(deps) = &task.depends_on
+    {
+        for dep in deps {
+            get_subgraph(tasks, dep, subgraph);
         }
     }
 }

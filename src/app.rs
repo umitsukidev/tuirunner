@@ -39,10 +39,10 @@ impl App {
         };
 
         let mut selected_task_index = 0;
-        if let Some(first_task) = initial_tasks.first() {
-            if let Some(pos) = visible_tasks.iter().position(|name| name == first_task) {
-                selected_task_index = pos;
-            }
+        if let Some(first_task) = initial_tasks.first()
+            && let Some(pos) = visible_tasks.iter().position(|name| name == first_task)
+        {
+            selected_task_index = pos;
         }
 
         if !initial_tasks.is_empty() {
@@ -121,18 +121,17 @@ impl App {
                     self.cached_stdin_txs.remove(name);
                 }
             }
-            if let Some(ref selected) = selected_name {
-                if let Some(state) = states_guard.get(selected) {
-                    if let Ok(logs_guard) = state.output.try_lock() {
-                        let needs_update = match self.cached_logs.get(selected) {
-                            Some(cached) => cached.version != logs_guard.version,
-                            None => true,
-                        };
-                        if needs_update {
-                            self.cached_logs
-                                .insert(selected.clone(), (*logs_guard).clone());
-                        }
-                    }
+            if let Some(ref selected) = selected_name
+                && let Some(state) = states_guard.get(selected)
+                && let Ok(logs_guard) = state.output.try_lock()
+            {
+                let needs_update = match self.cached_logs.get(selected) {
+                    Some(cached) => cached.version != logs_guard.version,
+                    None => true,
+                };
+                if needs_update {
+                    self.cached_logs
+                        .insert(selected.clone(), (*logs_guard).clone());
                 }
             }
         }
@@ -200,9 +199,7 @@ impl App {
         let content_height = log_area.height.saturating_sub(overhead) as usize;
         let max_scroll = logs_len.saturating_sub(content_height) as u16;
 
-        if self.auto_scroll {
-            self.log_scroll_offset = max_scroll;
-        } else if self.log_scroll_offset > max_scroll {
+        if self.auto_scroll || self.log_scroll_offset > max_scroll {
             self.log_scroll_offset = max_scroll;
         }
 
@@ -229,12 +226,11 @@ impl App {
     }
 
     fn handle_events(&mut self) -> io::Result<()> {
-        if event::poll(Duration::from_millis(50))? {
-            if let Event::Key(key_event) = event::read()? {
-                if key_event.kind == KeyEventKind::Press {
-                    self.handle_key_event(key_event);
-                }
-            }
+        if event::poll(Duration::from_millis(50))?
+            && let Event::Key(key_event) = event::read()?
+            && key_event.kind == KeyEventKind::Press
+        {
+            self.handle_key_event(key_event);
         }
         Ok(())
     }
@@ -269,7 +265,7 @@ impl App {
                                     'z' => vec![26], // Ctrl+Z (SUB)
                                     _ => {
                                         let c_upper = c.to_ascii_uppercase();
-                                        if c_upper >= 'A' && c_upper <= 'Z' {
+                                        if c_upper.is_ascii_uppercase() {
                                             vec![(c_upper as u8) - b'A' + 1]
                                         } else {
                                             c.to_string().into_bytes()
