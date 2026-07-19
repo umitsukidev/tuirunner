@@ -149,3 +149,44 @@ impl<'a> Widget for LogViewer<'a> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn key(code: KeyCode, modifiers: KeyModifiers) -> KeyEvent {
+        KeyEvent::new(code, modifiers)
+    }
+
+    #[test]
+    fn test_page_navigation_clamps_to_log_bounds() {
+        let page_down = key(KeyCode::PageDown, KeyModifiers::NONE);
+
+        assert_eq!(
+            LogViewer::handle_key_event(page_down, 10, 20, 5, false),
+            Some((17, false))
+        );
+    }
+
+    #[test]
+    fn test_shift_down_restores_auto_scroll_near_the_bottom() {
+        let result =
+            LogViewer::handle_key_event(key(KeyCode::Down, KeyModifiers::SHIFT), 24, 40, 10, false);
+
+        assert_eq!(result, Some((32, true)));
+    }
+
+    #[test]
+    fn test_unhandled_key_does_not_change_scroll() {
+        assert_eq!(
+            LogViewer::handle_key_event(
+                key(KeyCode::Char('j'), KeyModifiers::NONE),
+                5,
+                20,
+                10,
+                false
+            ),
+            None
+        );
+    }
+}

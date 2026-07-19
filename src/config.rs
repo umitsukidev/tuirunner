@@ -123,6 +123,35 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_loads_toml_yaml_and_json_configurations() {
+        let configs = [
+            ("toml", "[tasks.hello]\nrun = \"echo hello\"\n"),
+            (
+                "yaml",
+                "tui: false\ntasks:\n  hello:\n    run: echo hello\n",
+            ),
+            ("json", r#"{"tasks":{"hello":{"run":"echo hello"}}}"#),
+        ];
+
+        for (index, (extension, content)) in configs.iter().enumerate() {
+            let path = std::env::temp_dir().join(format!(
+                "tuirunner-config-{}-{}.{}",
+                std::process::id(),
+                index,
+                extension
+            ));
+            std::fs::write(&path, content).unwrap();
+
+            let config = AppConfig::load_from_file(&path);
+            std::fs::remove_file(&path).unwrap();
+
+            let config = config.unwrap();
+            assert!(config.tasks.tasks.contains_key("hello"));
+            assert_eq!(config.tui, *extension != "yaml");
+        }
+    }
+
+    #[test]
     fn test_task_mutual_exclusion() {
         let mut tasks = HashMap::new();
         tasks.insert(
@@ -165,6 +194,29 @@ mod tests {
             res.unwrap_err()
                 .to_string()
                 .contains("Task name 'run' is reserved")
+        );
+    }
+
+    #[test]
+    fn test_task_dependency_must_exist() {
+        let mut tasks = HashMap::new();
+        tasks.insert(
+            "build".to_string(),
+            Task {
+                description: None,
+                run: Some(RunCommand::Single("echo build".to_string())),
+                cmd: None,
+                working_dir: None,
+                depends_on: Some(vec!["missing".to_string()]),
+            },
+        );
+
+        let res = validate_tasks_config(&TasksConfig { tasks }, &());
+        assert!(res.is_err());
+        assert!(
+            res.unwrap_err()
+                .to_string()
+                .contains("depends on non-existent task 'missing'")
         );
     }
 }

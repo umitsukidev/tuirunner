@@ -114,3 +114,46 @@ impl Widget for TaskList<'_> {
         List::new(list_items).block(block).render(area, buf);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn key(code: KeyCode, modifiers: KeyModifiers) -> KeyEvent {
+        KeyEvent::new(code, modifiers)
+    }
+
+    #[test]
+    fn test_navigation_stays_within_visible_tasks() {
+        let tasks = vec!["first".to_string(), "second".to_string()];
+
+        assert!(
+            TaskList::handle_key_event(key(KeyCode::Up, KeyModifiers::NONE), 0, &tasks).is_none()
+        );
+        assert!(matches!(
+            TaskList::handle_key_event(key(KeyCode::Down, KeyModifiers::NONE), 0, &tasks),
+            Some(TaskListEvent::Select(1))
+        ));
+        assert!(
+            TaskList::handle_key_event(key(KeyCode::Down, KeyModifiers::NONE), 1, &tasks).is_none()
+        );
+    }
+
+    #[test]
+    fn test_commands_target_the_selected_task() {
+        let tasks = vec!["first".to_string(), "second".to_string()];
+
+        assert!(matches!(
+            TaskList::handle_key_event(key(KeyCode::Enter, KeyModifiers::NONE), 1, &tasks),
+            Some(TaskListEvent::Run(name)) if name == "second"
+        ));
+        assert!(matches!(
+            TaskList::handle_key_event(key(KeyCode::Char('c'), KeyModifiers::NONE), 0, &tasks),
+            Some(TaskListEvent::Clear(name)) if name == "first"
+        ));
+        assert!(matches!(
+            TaskList::handle_key_event(key(KeyCode::Char('s'), KeyModifiers::SHIFT), 1, &tasks),
+            Some(TaskListEvent::StopAndNext(name)) if name == "second"
+        ));
+    }
+}

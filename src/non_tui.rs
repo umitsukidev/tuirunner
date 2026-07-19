@@ -54,3 +54,51 @@ pub async fn run_non_tui(
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::{RunCommand, Task, TasksConfig};
+    use std::collections::HashMap;
+
+    #[tokio::test]
+    async fn test_reports_failed_task() {
+        let mut tasks = HashMap::new();
+        tasks.insert(
+            "fails".to_string(),
+            Task {
+                description: None,
+                run: Some(RunCommand::Single("exit 1".to_string())),
+                cmd: None,
+                working_dir: None,
+                depends_on: None,
+            },
+        );
+        let runner = TaskRunner::new(TasksConfig { tasks }, false).unwrap();
+
+        let result = run_non_tui(&runner, &["fails".to_string()]).await;
+
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Some tasks failed: fails")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_rejects_unknown_target_without_running_tasks() {
+        let runner = TaskRunner::new(TasksConfig::default(), false).unwrap();
+
+        let result = run_non_tui(&runner, &["missing".to_string()]).await;
+
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Task 'missing' not found")
+        );
+    }
+}
