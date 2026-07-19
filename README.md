@@ -1,11 +1,13 @@
 # TuiRunner (tuir)
 
-[![CI](https://github.com/umitsukidev/tuirunner/actions/workflows/release.yml/badge.svg)](https://github.com/umitsukidev/tuirunner/actions/workflows/release.yml)
+[![CI](https://github.com/umitsukidev/tuirunner/actions/workflows/ci.yml/badge.svg)](https://github.com/umitsukidev/tuirunner/actions/workflows/ci.yml)
 [![Crates.io Version](https://img.shields.io/crates/v/tuirunner)](https://crates.io/crates/tuirunner)
 [![Crates.io Downloads](https://img.shields.io/crates/d/tuirunner)](https://crates.io/crates/tuirunner)
 [![License](https://img.shields.io/crates/l/tuirunner)](LICENSE)
 
 `tuir` is a concurrent task runner with a terminal user interface (TUI) and command-line interface (CLI) written in Rust, built on top of [ratatui](https://github.com/ratatui/ratatui). It allows users to define a dependency graph of tasks and execute them concurrently with real-time log capturing.
+
+Read the full [documentation](https://tuir.umitsuki.dev/) or the [Japanese guide](https://tuir.umitsuki.dev/ja/guide.html).
 
 ## Features
 
@@ -22,6 +24,8 @@
 
 ## User Guide
 
+`tuirunner` is published on [crates.io](https://crates.io/crates/tuirunner).
+
 ### Installation
 
 To install `tuir`, run the following command:
@@ -31,6 +35,18 @@ cargo install tuirunner
 ```
 
 This will compile and install the `tuir` binary into your Cargo bin directory (e.g., `~/.cargo/bin`), which should be in your system's `PATH`.
+
+### Quick Start
+
+Create a configuration, then run it:
+
+```bash
+mkdir my-project && cd my-project
+tuir init
+tuir run
+```
+
+`tuir init` refuses to overwrite any existing `runner.config.toml`, `runner.config.yaml`, `runner.config.yml`, or `runner.config.json` file. Use `--format toml`, `--format yaml`, or `--format json` to choose a format.
 
 ### Usage
 
@@ -76,6 +92,8 @@ tuir init
 - `-c <path>`, `--config <path>`: Path to the configuration file (default: [runner.config.toml](./runner.config.toml)). Can also use `--config=<path>`.
 - `--no-tui`: Bypass the TUI interface and execute tasks directly in the CLI.
 
+In non-TUI mode, `tuir` exits with a non-zero status if any selected task fails, which makes it suitable for CI scripts.
+
 ### Configuration
 
 `tuir` supports TOML, YAML, and JSON. Below is an example of [runner.config.toml](./runner.config.toml):
@@ -118,6 +136,8 @@ working_dir = "./deploy_script"
     - **`working_dir`** (string, optional): Directory where the command will be run.
     - **`depends_on`** (list of strings, optional): Tasks that must finish successfully before this task can start.
 
+Task names must be unique, cannot be `run`, and every name in `depends_on` must refer to a configured task. A task must use either `run` or `cmd`, not both.
+
 ### Interactive TUI Keybindings
 
 When running in TUI mode, use the following keybindings to interact with the application:
@@ -131,7 +151,7 @@ When running in TUI mode, use the following keybindings to interact with the app
 | `S` (Shift+S)             | Stop execution of the selected task and continue downstream tasks |
 | `c`                       | Clear output logs of the selected task                            |
 | `C` (Shift+C)             | Clear output logs of all tasks                                    |
-| `PgUp` / `PgDn`           | Scroll logs up/down by half a page                                |
+| `PgUp` / `PgDn`           | Scroll logs up/down by 10 lines                                   |
 | `Shift + ↑` / `Shift + ↓` | Scroll logs up/down line by line                                  |
 | `i`                       | Enter "Interactive Input Mode" for the selected running task      |
 | `Esc` (interactive mode)  | Exit Interactive Input Mode and return to standard TUI control    |
@@ -163,6 +183,15 @@ The compiled binary will be located at `target/release/tuir`.
 
 ```bash
 cargo test
+```
+
+Before opening a release PR, run the same Rust checks used by CI:
+
+```bash
+cargo fmt --check
+cargo clippy --all-targets --all-features -- -W clippy::all -D warnings
+cargo test --all-targets --all-features
+cargo package
 ```
 
 #### JSON Schema Generation
@@ -205,10 +234,11 @@ We plan to implement the following features in future releases:
 
 ## Release Workflow
 
-This repository has an automated release tagging workflow. When a Pull Request is merged into the `main` branch, a Git tag will be automatically created and pushed if the PR title matches the format `release: <version>` (e.g., `release: v0.1.0-beta.1`).
+This repository has an automated release tagging workflow. When a Pull Request is merged into the `main` branch, a Git tag is automatically created and published if the PR title matches the format `release: <version>` (e.g., `release: v0.1.0-rc.1`).
 
-- **Format**: `release: <version> [optional comments]` (The tag will only include the extracted version, e.g. `v0.1.0-beta.1`).
-- **Trigger**: Merge to the `main` branch.
+- **Format**: `release: <version> [optional comments]` (The tag contains only the extracted version, e.g. `v0.1.0-rc.1`).
+- **Version check**: Update the version in `Cargo.toml`, `Cargo.lock`, and `mise.toml` before merging. The version in `Cargo.toml` must match the release tag without its leading `v`.
+- **Trigger**: Only a matching release PR merged into `main` creates a tag and runs the publish workflow. Normal pushes to `main` run quality CI but do not publish a release.
 
 ---
 
