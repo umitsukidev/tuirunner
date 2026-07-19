@@ -1,5 +1,10 @@
 # TuiRunner (tuir)
 
+[![CI](https://github.com/umitsukidev/tuirunner/actions/workflows/release.yml/badge.svg)](https://github.com/umitsukidev/tuirunner/actions/workflows/release.yml)
+[![Crates.io Version](https://img.shields.io/crates/v/tuirunner)](https://crates.io/crates/tuirunner)
+[![Crates.io Downloads](https://img.shields.io/crates/d/tuirunner)](https://crates.io/crates/tuirunner)
+[![License](https://img.shields.io/crates/l/tuirunner)](LICENSE)
+
 `tuir` is a concurrent task runner with a terminal user interface (TUI) and command-line interface (CLI) written in Rust, built on top of [ratatui](https://github.com/ratatui/ratatui). It allows users to define a dependency graph of tasks and execute them concurrently with real-time log capturing.
 
 ## Features
