@@ -17,9 +17,6 @@ readme = "README.md"
 name = "tuir"
 path = "src/main.rs"
 
-[lints.clippy]
-all = "warn"
-
 [dependencies]
 color-eyre = "0.6.5"
 crossterm = "0.29.0"
