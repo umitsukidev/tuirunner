@@ -1,3 +1,4 @@
+Clippy
 codegen
 Condvar
 crossterm
