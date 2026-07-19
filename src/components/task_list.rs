@@ -32,9 +32,7 @@ impl TaskList<'_> {
 
         match key.code {
             KeyCode::Up | KeyCode::Char('k') if !has_shift => {
-                if idx > 0 {
-                    idx -= 1;
-                }
+                idx = idx.saturating_sub(1);
             }
             KeyCode::Down | KeyCode::Char('j') if !has_shift => {
                 if idx + 1 < order.len() {

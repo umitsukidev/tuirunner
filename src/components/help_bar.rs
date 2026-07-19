@@ -71,7 +71,7 @@ impl HelpBar {
 
             if current_line_len == 0 {
                 if word_len > limit {
-                    lines += (word_len + limit - 1) / limit;
+                    lines += word_len.div_ceil(limit);
                     current_line_len = word_len % limit;
                 } else {
                     current_line_len = word_len;

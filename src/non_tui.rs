@@ -42,10 +42,10 @@ pub async fn run_non_tui(
     let states_guard = runner.states.lock().unwrap();
     let mut failed_tasks = Vec::new();
     for name in &target_subgraph {
-        if let Some(state) = states_guard.get(name) {
-            if state.status == TaskStatus::Failed {
-                failed_tasks.push(name.clone());
-            }
+        if let Some(state) = states_guard.get(name)
+            && state.status == TaskStatus::Failed
+        {
+            failed_tasks.push(name.clone());
         }
     }
     if !failed_tasks.is_empty() {

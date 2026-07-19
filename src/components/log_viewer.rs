@@ -38,11 +38,7 @@ impl LogViewer<'_> {
             KeyCode::Down | KeyCode::Char('j') if key.modifiers.contains(KeyModifiers::SHIFT) => {
                 offset = offset.saturating_add(1);
                 // Maintain auto scroll if scrolled near the bottom
-                if (offset as usize) >= logs_len.saturating_sub(15) {
-                    auto = true;
-                } else {
-                    auto = false;
-                }
+                auto = (offset as usize) >= logs_len.saturating_sub(15);
             }
             KeyCode::PageUp => {
                 offset = offset.saturating_sub(10);
@@ -55,9 +51,7 @@ impl LogViewer<'_> {
             _ => return None,
         }
 
-        if auto {
-            offset = max_scroll;
-        } else if offset > max_scroll {
+        if auto || offset > max_scroll {
             offset = max_scroll;
         }
 
